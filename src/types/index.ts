@@ -3,6 +3,7 @@ export type {
   PolygonGeometry,
   FeatureProperties,
   LibreDrawFeature,
+  FeatureCollection,
   ActionType,
   Action,
   FeatureStoreInterface,

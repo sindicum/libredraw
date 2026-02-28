@@ -63,6 +63,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 | `setMode(mode)`           | Set active mode: `'idle'`, `'draw'`, or `'select'`    |
 | `getMode()`               | Get the current mode                                  |
 | `getFeatures()`           | Get all features as an array                          |
+| `toGeoJSON()`             | Export all features as a GeoJSON FeatureCollection    |
 | `getFeatureById(id)`      | Get a single feature by ID                            |
 | `setFeatures(geojson)`    | Replace all features with a GeoJSON FeatureCollection |
 | `addFeatures(features)`   | Add an array of GeoJSON Feature objects               |

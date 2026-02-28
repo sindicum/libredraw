@@ -7,6 +7,7 @@ export type {
   PolygonGeometry,
   FeatureProperties,
   LibreDrawFeature,
+  FeatureCollection,
   ActionType,
   Action,
 } from './types';

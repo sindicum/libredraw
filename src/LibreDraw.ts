@@ -1,6 +1,7 @@
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type {
   LibreDrawFeature,
+  FeatureCollection,
   LibreDrawEventMap,
   LibreDrawOptions,
   ToolbarOptions,
@@ -241,6 +242,28 @@ export class LibreDraw {
   getFeatures(): LibreDrawFeature[] {
     this.assertNotDestroyed();
     return this.featureStore.getAll();
+  }
+
+  /**
+   * Export all features as a GeoJSON FeatureCollection.
+   *
+   * Returns a standard GeoJSON FeatureCollection containing all polygon
+   * features currently in the store.
+   *
+   * @returns A GeoJSON {@link FeatureCollection}.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const geojson = draw.toGeoJSON();
+   * console.log(JSON.stringify(geojson));
+   * // { "type": "FeatureCollection", "features": [...] }
+   * ```
+   */
+  toGeoJSON(): FeatureCollection {
+    this.assertNotDestroyed();
+    return this.featureStore.toGeoJSON();
   }
 
   /**

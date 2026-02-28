@@ -29,6 +29,14 @@ export interface LibreDrawFeature {
 }
 
 /**
+ * A GeoJSON FeatureCollection containing LibreDraw polygons.
+ */
+export interface FeatureCollection {
+  type: 'FeatureCollection';
+  features: LibreDrawFeature[];
+}
+
+/**
  * The type of history action.
  */
 export type ActionType = 'create' | 'update' | 'delete';

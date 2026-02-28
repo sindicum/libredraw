@@ -2,15 +2,8 @@ import type {
   LibreDrawFeature,
   Position,
   FeatureStoreInterface,
+  FeatureCollection,
 } from '../types/features';
-
-/**
- * A GeoJSON FeatureCollection containing LibreDraw polygons.
- */
-export interface FeatureCollection {
-  type: 'FeatureCollection';
-  features: LibreDrawFeature[];
-}
 
 /**
  * Internal store for managing LibreDraw features.
