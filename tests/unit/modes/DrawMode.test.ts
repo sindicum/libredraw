@@ -150,4 +150,99 @@ describe('DrawMode', () => {
 
     expect(callbacks.addFeatureToStore).toHaveBeenCalled();
   });
+
+  // --- Self-intersection prevention ---
+
+  describe('self-intersection prevention', () => {
+    it('should reject vertex that would create self-intersecting edge', () => {
+      drawMode.activate();
+
+      // Draw an L-shape: (0,0) → (10,0) → (10,5) → (5,5)
+      drawMode.onPointerDown(createPointerEvent(0, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 5));
+      drawMode.onPointerDown(createPointerEvent(5, 5));
+
+      const previewCallCount = vi.mocked(callbacks.renderPreview).mock.calls.length;
+
+      // Adding (5,-5) would create edge (5,5)→(5,-5) which crosses (0,0)→(10,0)
+      drawMode.onPointerDown(createPointerEvent(5, -5));
+
+      // Preview should NOT have been updated (vertex rejected)
+      expect(vi.mocked(callbacks.renderPreview).mock.calls.length).toBe(previewCallCount);
+    });
+
+    it('should allow vertex that does not create intersection', () => {
+      drawMode.activate();
+
+      drawMode.onPointerDown(createPointerEvent(0, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 10));
+
+      const previewCallCount = vi.mocked(callbacks.renderPreview).mock.calls.length;
+
+      // Adding (0,10) is fine — no intersection
+      drawMode.onPointerDown(createPointerEvent(0, 10));
+
+      expect(vi.mocked(callbacks.renderPreview).mock.calls.length).toBe(previewCallCount + 1);
+    });
+
+    it('should reject double-click finalization that would cause closing intersection', () => {
+      drawMode.activate();
+
+      // Create vertices where closing would cause intersection:
+      // (0,0) → (10,0) → (5,10) → (15,5)
+      drawMode.onPointerDown(createPointerEvent(0, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 0));
+      drawMode.onPointerDown(createPointerEvent(5, 10));
+      drawMode.onPointerDown(createPointerEvent(15, 5));
+
+      // Extra click from double-click
+      drawMode.onPointerDown(createPointerEvent(12, 4));
+
+      const dblClickEvent = createPointerEvent(12, 4);
+      vi.spyOn(dblClickEvent.originalEvent, 'preventDefault').mockImplementation(() => {});
+      vi.spyOn(dblClickEvent.originalEvent, 'stopPropagation').mockImplementation(() => {});
+
+      drawMode.onDoubleClick(dblClickEvent);
+
+      // Polygon should NOT have been created
+      expect(callbacks.addFeatureToStore).not.toHaveBeenCalled();
+    });
+
+    it('should reject click-to-close that would cause closing intersection', () => {
+      drawMode.activate();
+
+      // (0,0) → (10,0) → (5,10) → (15,5)
+      // Closing (15,5)→(0,0) would cross (10,0)→(5,10)
+      drawMode.onPointerDown(createPointerEvent(0, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 0));
+      drawMode.onPointerDown(createPointerEvent(5, 10));
+      drawMode.onPointerDown(createPointerEvent(15, 5));
+
+      // Click near first vertex to close
+      drawMode.onPointerDown(createPointerEvent(0, 0, 0, 0));
+
+      // Polygon should NOT have been created (closing would self-intersect)
+      expect(callbacks.addFeatureToStore).not.toHaveBeenCalled();
+    });
+
+    it('should allow valid polygon creation via double-click', () => {
+      drawMode.activate();
+
+      // Simple square
+      drawMode.onPointerDown(createPointerEvent(0, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 0));
+      drawMode.onPointerDown(createPointerEvent(10, 10));
+      drawMode.onPointerDown(createPointerEvent(5, 5)); // extra from dblclick
+
+      const dblClickEvent = createPointerEvent(5, 5);
+      vi.spyOn(dblClickEvent.originalEvent, 'preventDefault').mockImplementation(() => {});
+      vi.spyOn(dblClickEvent.originalEvent, 'stopPropagation').mockImplementation(() => {});
+
+      drawMode.onDoubleClick(dblClickEvent);
+
+      expect(callbacks.addFeatureToStore).toHaveBeenCalled();
+    });
+  });
 });

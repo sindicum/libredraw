@@ -547,4 +547,41 @@ describe('SelectMode', () => {
       expect(callbacks.pushToHistory).toHaveBeenCalledOnce();
     });
   });
+
+  // --- Self-intersection prevention ---
+
+  describe('self-intersection prevention during drag', () => {
+    it('should reject vertex drag that would cause self-intersection', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      // Start drag on vertex (0,0)
+      selectMode.onPointerDown(createPointerEvent(0, 0));
+
+      vi.mocked(callbacks.updateFeatureInStore).mockClear();
+
+      // Original square: (0,0),(10,0),(10,10),(0,10)
+      // Moving (0,0) to (5,12) creates polygon (5,12),(10,0),(10,10),(0,10)
+      // Edge (5,12)→(10,0) crosses edge (10,10)→(0,10) — self-intersection!
+      selectMode.onPointerMove(createPointerEvent(5, 12));
+
+      // The store should NOT have been updated (move rejected)
+      expect(callbacks.updateFeatureInStore).not.toHaveBeenCalled();
+    });
+
+    it('should allow vertex drag that does not cause self-intersection', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      // Start drag on vertex (0,0)
+      selectMode.onPointerDown(createPointerEvent(0, 0));
+
+      vi.mocked(callbacks.updateFeatureInStore).mockClear();
+
+      // Drag slightly — no intersection
+      selectMode.onPointerMove(createPointerEvent(1, 1));
+
+      expect(callbacks.updateFeatureInStore).toHaveBeenCalled();
+    });
+  });
 });

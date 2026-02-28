@@ -1,5 +1,6 @@
 import type { LibreDrawFeature, Position } from '../types/features';
 import { LibreDrawError } from '../core/errors';
+import { hasRingSelfIntersection } from './intersection';
 
 /**
  * A GeoJSON FeatureCollection type for validation purposes.
@@ -70,6 +71,12 @@ function validateRing(ring: Position[]): void {
       );
     }
     validateCoordinate(pos as Position);
+  }
+
+  if (hasRingSelfIntersection(ring as Position[])) {
+    throw new LibreDrawError(
+      'Ring has self-intersections. Polygon edges must not cross each other.',
+    );
   }
 }
 

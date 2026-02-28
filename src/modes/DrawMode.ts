@@ -7,6 +7,10 @@ import type {
 } from '../types/features';
 import type { LibreDrawEventMap } from '../types/events';
 import { CreateAction } from '../types/features';
+import {
+  wouldNewVertexCauseIntersection,
+  wouldClosingCauseIntersection,
+} from '../validation/intersection';
 
 /**
  * Threshold in pixels: if a click is within this distance of the first
@@ -89,10 +93,15 @@ export class DrawMode implements Mode {
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist <= CLOSE_THRESHOLD_PX) {
+        // Reject closing if it would cause self-intersection
+        if (wouldClosingCauseIntersection(this.vertices)) return;
         this.finalizePolygon();
         return;
       }
     }
+
+    // Reject vertex if it would cause self-intersection
+    if (wouldNewVertexCauseIntersection(this.vertices, newVertex)) return;
 
     this.vertices.push(newVertex);
     this.updatePreview(event);
@@ -117,7 +126,10 @@ export class DrawMode implements Mode {
     }
 
     if (this.vertices.length >= MIN_VERTICES) {
-      this.finalizePolygon();
+      // Reject closing if it would cause self-intersection
+      if (!wouldClosingCauseIntersection(this.vertices)) {
+        this.finalizePolygon();
+      }
     }
 
     // Prevent the double click from being handled by the map

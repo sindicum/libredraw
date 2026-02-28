@@ -151,6 +151,46 @@ describe('validateFeature', () => {
       ),
     ).toThrow('Invalid latitude');
   });
+
+  it('should reject a self-intersecting polygon', () => {
+    // Bowtie: edges cross each other
+    expect(() =>
+      validateFeature(
+        makeFeature({
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [0, 0],
+                [10, 10],
+                [10, 0],
+                [0, 10],
+                [0, 0],
+              ],
+            ],
+          },
+        }),
+      ),
+    ).toThrow('self-intersections');
+  });
+
+  it('should accept a valid non-self-intersecting polygon', () => {
+    const feature = makeFeature({
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [0, 0],
+            [10, 0],
+            [10, 10],
+            [0, 10],
+            [0, 0],
+          ],
+        ],
+      },
+    });
+    expect(() => validateFeature(feature)).not.toThrow();
+  });
 });
 
 describe('validateGeoJSON', () => {

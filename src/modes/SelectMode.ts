@@ -10,6 +10,7 @@ import { DeleteAction, UpdateAction } from '../types/features';
 import { FeatureStore } from '../core/FeatureStore';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { point as turfPoint } from '@turf/helpers';
+import { hasRingSelfIntersection } from '../validation/intersection';
 
 /**
  * Threshold in pixels for vertex/midpoint hit testing (mouse).
@@ -197,6 +198,12 @@ export class SelectMode implements Mode {
 
       const newPos: Position = [event.lngLat.lng, event.lngLat.lat];
       const updatedFeature = this.moveVertex(feature, this.dragVertexIndex, newPos);
+
+      // Reject move if it would cause self-intersection
+      if (hasRingSelfIntersection(updatedFeature.geometry.coordinates[0])) {
+        return;
+      }
+
       this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
       this.callbacks.renderFeatures();
       this.showVertexHandles(updatedFeature);
