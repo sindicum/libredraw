@@ -1,0 +1,37 @@
+/**
+ * Position of the toolbar control on the map.
+ */
+export type ToolbarPosition =
+  | 'top-left'
+  | 'top-right'
+  | 'bottom-left'
+  | 'bottom-right';
+
+/**
+ * Configuration for which toolbar controls to display.
+ */
+export interface ToolbarControls {
+  draw?: boolean;
+  select?: boolean;
+  delete?: boolean;
+  undo?: boolean;
+  redo?: boolean;
+}
+
+/**
+ * Configuration options for the toolbar.
+ */
+export interface ToolbarOptions {
+  position?: ToolbarPosition;
+  controls?: ToolbarControls;
+}
+
+/**
+ * Options for creating a LibreDraw instance.
+ */
+export interface LibreDrawOptions {
+  /** Whether to show the toolbar, or toolbar configuration options. */
+  toolbar?: boolean | ToolbarOptions;
+  /** Maximum number of undo/redo history entries. Defaults to 100. */
+  historyLimit?: number;
+}

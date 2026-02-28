@@ -1,0 +1,35 @@
+# Misc
+.DS_Store
+*.pem
+
+# Local env files
+.env*.local
+.env
+
+# IDE
+.vscode/*
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+
+# Playwright
+playwright-report/
+test-results/
+
+# Claude Code SDD template infrastructure
+.claude
+.devcontainer
+.steering
+docs
+CLAUDE.md
+MEMO.md
+prompt.md
