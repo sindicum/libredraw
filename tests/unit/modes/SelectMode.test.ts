@@ -128,12 +128,19 @@ describe('SelectMode', () => {
     expect(selectMode.getSelectedIds()).toHaveLength(0);
   });
 
-  it('should deselect a selected feature when clicking on it again', () => {
+  it('should start polygon drag when clicking inside a selected polygon', () => {
     selectMode.activate();
     selectMode.onPointerDown(createPointerEvent(5, 5)); // select
-    selectMode.onPointerDown(createPointerEvent(5, 5)); // toggle off
 
-    expect(selectMode.getSelectedIds()).toHaveLength(0);
+    vi.mocked(callbacks.setDragPan).mockClear();
+
+    // Click inside the selected polygon body (far from any vertex/midpoint)
+    selectMode.onPointerDown(createPointerEvent(5, 5));
+
+    // Should start polygon drag (dragPan disabled)
+    expect(callbacks.setDragPan).toHaveBeenCalledWith(false);
+    // Should remain selected
+    expect(selectMode.getSelectedIds()).toContain('f1');
   });
 
   it('should delete selected features on Delete key', () => {
@@ -310,17 +317,26 @@ describe('SelectMode', () => {
       expect(callbacks.setDragPan).toHaveBeenCalledWith(true);
     });
 
-    it('should not start drag when clicking far from vertices', () => {
+    it('should not start vertex drag when clicking far from vertices', () => {
       selectMode.activate();
       selectMode.onPointerDown(createPointerEvent(5, 5)); // select
 
-      vi.mocked(callbacks.setDragPan).mockClear();
-
       // Click in the middle of the polygon, far from any vertex
+      // This now starts a polygon drag (not vertex drag), so dragging flag should differ
       selectMode.onPointerDown(createPointerEvent(5, 5));
 
-      // This should toggle deselection, not start a drag
-      expect(callbacks.setDragPan).not.toHaveBeenCalledWith(false);
+      // Move the pointer — if it were a vertex drag, updateFeatureInStore would move a single vertex
+      vi.mocked(callbacks.updateFeatureInStore).mockClear();
+      selectMode.onPointerMove(createPointerEvent(6, 6));
+
+      // All vertices should have moved (polygon drag), not just one
+      const updatedFeature = vi.mocked(callbacks.updateFeatureInStore).mock.calls[0][1];
+      const ring = updatedFeature.geometry.coordinates[0];
+      // Original polygon is (0,0),(10,0),(10,10),(0,10) — all shifted by delta (1,1)
+      expect(ring[0][0]).toBe(1);
+      expect(ring[0][1]).toBe(1);
+      expect(ring[1][0]).toBe(11);
+      expect(ring[1][1]).toBe(1);
     });
 
     it('should restore dragPan on drag end', () => {
@@ -390,15 +406,20 @@ describe('SelectMode', () => {
       expect(callbacks.setDragPan).toHaveBeenCalledWith(false); // drag started
     });
 
-    it('should miss at 11px with mouse input', () => {
+    it('should miss vertex at 11px with mouse input', () => {
       selectMode.activate();
       selectMode.onPointerDown(createPointerEvent(5, 5)); // select
 
+      // Point at (1.1,0) → screen (11,0) → distance 11px from vertex (0,0), outside mouse threshold
+      // But point is still inside the polygon, so polygon drag starts
+      // To test vertex miss specifically, click OUTSIDE the polygon
+      selectMode.onPointerUp(createPointerEvent(5, 5)); // clear any drag state
+
       vi.mocked(callbacks.setDragPan).mockClear();
 
-      // Point at (1.1,0) → screen (11,0) → distance 11px, outside mouse threshold
-      selectMode.onPointerDown(createPointerEvent(1.1, 0));
-      // Should NOT start drag (triggers deselection instead)
+      // Click outside the polygon, close to vertex (0,0) but beyond threshold
+      selectMode.onPointerDown(createPointerEvent(-1.1, 0));
+      // Should NOT start any drag
       expect(callbacks.setDragPan).not.toHaveBeenCalledWith(false);
     });
 
@@ -414,14 +435,16 @@ describe('SelectMode', () => {
       expect(callbacks.setDragPan).toHaveBeenCalledWith(false); // drag started
     });
 
-    it('should miss at 25px with touch input', () => {
+    it('should miss vertex at 25px with touch input', () => {
       selectMode.activate();
       selectMode.onPointerDown(createPointerEvent(5, 5)); // select
 
+      selectMode.onPointerUp(createPointerEvent(5, 5)); // clear any drag state
+
       vi.mocked(callbacks.setDragPan).mockClear();
 
-      // Point at (2.5,0) → screen (25,0) → distance 25px, outside touch threshold
-      selectMode.onPointerDown(createTouchEvent(2.5, 0));
+      // Click outside the polygon, near vertex (0,0) but beyond touch threshold
+      selectMode.onPointerDown(createTouchEvent(-2.5, 0));
       expect(callbacks.setDragPan).not.toHaveBeenCalledWith(false);
     });
   });
@@ -545,6 +568,114 @@ describe('SelectMode', () => {
       selectMode.onDoubleClick(dblEvt);
 
       expect(callbacks.pushToHistory).toHaveBeenCalledOnce();
+    });
+  });
+
+  // --- Polygon drag tests ---
+
+  describe('polygon drag', () => {
+    it('should move all vertices by the same delta during polygon drag', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      // Start polygon drag by clicking inside the polygon body
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+
+      vi.mocked(callbacks.updateFeatureInStore).mockClear();
+
+      // Drag to new position (delta: lng+2, lat+3)
+      selectMode.onPointerMove(createPointerEvent(7, 8));
+
+      expect(callbacks.updateFeatureInStore).toHaveBeenCalled();
+      const updatedFeature = vi.mocked(callbacks.updateFeatureInStore).mock.calls[0][1];
+      const ring = updatedFeature.geometry.coordinates[0];
+
+      // Original: (0,0),(10,0),(10,10),(0,10),(0,0) → shifted by (2,3)
+      expect(ring[0]).toEqual([2, 3]);
+      expect(ring[1]).toEqual([12, 3]);
+      expect(ring[2]).toEqual([12, 13]);
+      expect(ring[3]).toEqual([2, 13]);
+      expect(ring[4]).toEqual([2, 3]); // closing point
+    });
+
+    it('should commit polygon drag with UpdateAction on pointer up', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      // Start polygon drag
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+
+      // Move
+      selectMode.onPointerMove(createPointerEvent(7, 8));
+
+      vi.mocked(callbacks.pushToHistory).mockClear();
+      vi.mocked(callbacks.emitEvent).mockClear();
+
+      // Release
+      selectMode.onPointerUp(createPointerEvent(7, 8));
+
+      expect(callbacks.pushToHistory).toHaveBeenCalled();
+      expect(callbacks.emitEvent).toHaveBeenCalledWith(
+        'update',
+        expect.objectContaining({
+          feature: expect.any(Object),
+          oldFeature: expect.any(Object),
+        }),
+      );
+      expect(callbacks.setDragPan).toHaveBeenCalledWith(true);
+    });
+
+    it('should prioritize vertex drag over polygon drag', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      vi.mocked(callbacks.updateFeatureInStore).mockClear();
+
+      // Click near vertex (0,0) — should start vertex drag, not polygon drag
+      selectMode.onPointerDown(createPointerEvent(0, 0));
+
+      // Move
+      selectMode.onPointerMove(createPointerEvent(2, 2));
+
+      // Only vertex 0 should have moved, not all vertices
+      const updatedFeature = vi.mocked(callbacks.updateFeatureInStore).mock.calls[0][1];
+      const ring = updatedFeature.geometry.coordinates[0];
+      expect(ring[0]).toEqual([2, 2]); // moved vertex
+      expect(ring[1]).toEqual([10, 0]); // unchanged
+      expect(ring[2]).toEqual([10, 10]); // unchanged
+    });
+
+    it('should update vertex handles during polygon drag', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      // Start polygon drag
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+
+      vi.mocked(callbacks.renderVertices).mockClear();
+
+      // Move
+      selectMode.onPointerMove(createPointerEvent(7, 8));
+
+      expect(callbacks.renderVertices).toHaveBeenCalledWith(
+        'f1',
+        expect.any(Array),
+        expect.any(Array),
+        undefined,
+      );
+    });
+
+    it('should deselect when clicking outside all polygons', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+      expect(selectMode.getSelectedIds()).toContain('f1');
+
+      // Release polygon drag (end any potential drag state)
+      selectMode.onPointerUp(createPointerEvent(5, 5));
+
+      // Click outside all polygons
+      selectMode.onPointerDown(createPointerEvent(50, 50));
+      expect(selectMode.getSelectedIds()).toHaveLength(0);
     });
   });
 

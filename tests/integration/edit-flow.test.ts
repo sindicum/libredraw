@@ -229,6 +229,53 @@ describe('Edit Flow Integration', () => {
     expect(undoneRingLength).toBe(originalRingLength);
   });
 
+  it('should move entire polygon via drag and undo/redo', () => {
+    const { store, history, modeManager } = createSystem();
+
+    // Draw a square
+    drawSquare(modeManager);
+    expect(store.getAll()).toHaveLength(1);
+
+    const featureId = store.getAll()[0].id;
+    const originalCoords = store.getById(featureId)!.geometry.coordinates[0].map(
+      (pos: number[]) => [...pos],
+    );
+
+    // Switch to select mode and select the polygon
+    modeManager.setMode('select');
+    const selectImpl = modeManager.getCurrentMode()!;
+    selectImpl.onPointerDown(createPointerEvent(5, 5)); // select
+
+    // Start polygon drag by clicking inside the polygon body (far from vertices)
+    selectImpl.onPointerDown(createPointerEvent(5, 5));
+    // Drag with delta (3, 2)
+    selectImpl.onPointerMove(createPointerEvent(8, 7));
+    selectImpl.onPointerUp(createPointerEvent(8, 7)); // commit
+
+    // Verify all vertices moved by the same delta
+    const movedCoords = store.getById(featureId)!.geometry.coordinates[0];
+    for (let i = 0; i < originalCoords.length; i++) {
+      expect(movedCoords[i][0]).toBeCloseTo(originalCoords[i][0] + 3, 10);
+      expect(movedCoords[i][1]).toBeCloseTo(originalCoords[i][1] + 2, 10);
+    }
+
+    // Undo should restore original positions
+    history.undo(store);
+    const restoredCoords = store.getById(featureId)!.geometry.coordinates[0];
+    for (let i = 0; i < originalCoords.length; i++) {
+      expect(restoredCoords[i][0]).toBeCloseTo(originalCoords[i][0], 10);
+      expect(restoredCoords[i][1]).toBeCloseTo(originalCoords[i][1], 10);
+    }
+
+    // Redo should apply the move again
+    history.redo(store);
+    const redoneCoords = store.getById(featureId)!.geometry.coordinates[0];
+    for (let i = 0; i < originalCoords.length; i++) {
+      expect(redoneCoords[i][0]).toBeCloseTo(originalCoords[i][0] + 3, 10);
+      expect(redoneCoords[i][1]).toBeCloseTo(originalCoords[i][1] + 2, 10);
+    }
+  });
+
   it('should NOT delete polygon on long press when missing vertex', () => {
     const { store, modeManager } = createSystem();
 

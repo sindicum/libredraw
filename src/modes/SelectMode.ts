@@ -72,10 +72,14 @@ export class SelectMode implements Mode {
   private callbacks: SelectModeCallbacks;
   private onSelectionChange?: (selectedIds: string[]) => void;
 
-  // Drag state
+  // Vertex drag state
   private dragging = false;
   private dragVertexIndex = -1;
   private dragStartFeature: LibreDrawFeature | null = null;
+
+  // Polygon drag state
+  private draggingPolygon = false;
+  private dragPolygonStartLngLat: { lng: number; lat: number } | null = null;
 
   // Highlight state
   private highlightedVertexIndex = -1;
@@ -147,6 +151,13 @@ export class SelectMode implements Mode {
           this.dragStartFeature = beforeInsert;
           return;
         }
+
+        // Check if click is inside the selected polygon body → start polygon drag
+        const bodyClick = turfPoint([event.lngLat.lng, event.lngLat.lat]);
+        if (booleanPointInPolygon(bodyClick, feature.geometry)) {
+          this.startPolygonDrag(feature, event.lngLat);
+          return;
+        }
       }
     }
 
@@ -188,7 +199,7 @@ export class SelectMode implements Mode {
   onPointerMove(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 
-    // Drag: move vertex
+    // Vertex drag: move single vertex
     if (this.dragging) {
       const selectedId = this.getFirstSelectedId();
       if (!selectedId) return;
@@ -203,6 +214,21 @@ export class SelectMode implements Mode {
       if (hasRingSelfIntersection(updatedFeature.geometry.coordinates[0])) {
         return;
       }
+
+      this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
+      this.callbacks.renderFeatures();
+      this.showVertexHandles(updatedFeature);
+      return;
+    }
+
+    // Polygon drag: move entire polygon
+    if (this.draggingPolygon) {
+      const selectedId = this.getFirstSelectedId();
+      if (!selectedId || !this.dragStartFeature || !this.dragPolygonStartLngLat) return;
+
+      const dLng = event.lngLat.lng - this.dragPolygonStartLngLat.lng;
+      const dLat = event.lngLat.lat - this.dragPolygonStartLngLat.lat;
+      const updatedFeature = this.movePolygon(this.dragStartFeature, dLng, dLat);
 
       this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
       this.callbacks.renderFeatures();
@@ -228,7 +254,7 @@ export class SelectMode implements Mode {
   }
 
   onPointerUp(_event: NormalizedInputEvent): void {
-    if (!this.isActive || !this.dragging) return;
+    if (!this.isActive || (!this.dragging && !this.draggingPolygon)) return;
 
     const selectedId = this.getFirstSelectedId();
     if (!selectedId || !this.dragStartFeature) {
@@ -412,15 +438,30 @@ export class SelectMode implements Mode {
   }
 
   /**
+   * Start a polygon drag (whole-polygon move) operation.
+   */
+  private startPolygonDrag(
+    feature: LibreDrawFeature,
+    startLngLat: { lng: number; lat: number },
+  ): void {
+    this.draggingPolygon = true;
+    this.dragPolygonStartLngLat = startLngLat;
+    this.dragStartFeature = FeatureStore.cloneFeature(feature);
+    this.callbacks.setDragPan(false);
+  }
+
+  /**
    * End a drag operation and restore map interactions.
    */
   private endDrag(): void {
-    if (this.dragging) {
+    if (this.dragging || this.draggingPolygon) {
       this.callbacks.setDragPan(true);
     }
     this.dragging = false;
     this.dragVertexIndex = -1;
     this.dragStartFeature = null;
+    this.draggingPolygon = false;
+    this.dragPolygonStartLngLat = null;
     this.highlightedVertexIndex = -1;
   }
 
@@ -442,6 +483,26 @@ export class SelectMode implements Mode {
     if (vertexIndex === ring.length - 1) {
       ring[0] = newPos;
     }
+    return {
+      ...feature,
+      geometry: {
+        type: 'Polygon',
+        coordinates: [ring],
+      },
+    };
+  }
+
+  /**
+   * Create a new feature with all vertices translated by the given delta.
+   */
+  private movePolygon(
+    feature: LibreDrawFeature,
+    dLng: number,
+    dLat: number,
+  ): LibreDrawFeature {
+    const ring = feature.geometry.coordinates[0].map(
+      (pos): Position => [pos[0] + dLng, pos[1] + dLat],
+    );
     return {
       ...feature,
       geometry: {
