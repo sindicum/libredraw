@@ -15,6 +15,10 @@ node_modules/
 # Build output
 dist/
 
+# VitePress
+docs/.vitepress/dist
+docs/.vitepress/cache
+
 # Test coverage
 coverage/
 
@@ -29,7 +33,7 @@ test-results/
 .claude
 .devcontainer
 .steering
-docs
+claude-docs
 CLAUDE.md
 MEMO.md
 prompt.md
