@@ -100,8 +100,8 @@ export class LibreDraw {
         },
         updateFeatureInStore: (id, feature) =>
           this.featureStore.update(id, feature),
-        renderVertices: (_featureId, vertices, midpoints) =>
-          this.renderManager.renderVertices(vertices, midpoints),
+        renderVertices: (_featureId, vertices, midpoints, highlightIndex) =>
+          this.renderManager.renderVertices(vertices, midpoints, highlightIndex),
         clearVertices: () => this.renderManager.clearVertices(),
         setDragPan: (enabled) => {
           if (enabled) {

@@ -14,7 +14,7 @@ const LONG_PRESS_MS = 500;
 /**
  * Maximum movement (in pixels) allowed during a long press.
  */
-const LONG_PRESS_TOLERANCE = 10;
+const LONG_PRESS_TOLERANCE = 15;
 
 /**
  * Callbacks that TouchInput dispatches to.

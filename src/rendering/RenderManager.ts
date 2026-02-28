@@ -162,6 +162,7 @@ export class RenderManager {
     }
 
     // Edit vertices layer (white circles with blue stroke at polygon vertices)
+    // Uses data-driven styling to highlight the nearest vertex
     if (!this.map.getLayer(LAYER_IDS.EDIT_VERTICES)) {
       this.map.addLayer({
         id: LAYER_IDS.EDIT_VERTICES,
@@ -169,9 +170,24 @@ export class RenderManager {
         source: SOURCE_IDS.EDIT_VERTICES,
         filter: ['==', ['get', '_type'], 'vertex'],
         paint: {
-          'circle-radius': COLORS.EDIT_VERTEX_RADIUS,
-          'circle-color': COLORS.EDIT_VERTEX_COLOR,
-          'circle-stroke-color': COLORS.EDIT_VERTEX_STROKE,
+          'circle-radius': [
+            'case',
+            ['boolean', ['get', '_highlighted'], false],
+            7,
+            COLORS.EDIT_VERTEX_RADIUS,
+          ],
+          'circle-color': [
+            'case',
+            ['boolean', ['get', '_highlighted'], false],
+            '#ff4444',
+            COLORS.EDIT_VERTEX_COLOR,
+          ],
+          'circle-stroke-color': [
+            'case',
+            ['boolean', ['get', '_highlighted'], false],
+            '#cc0000',
+            COLORS.EDIT_VERTEX_STROKE,
+          ],
           'circle-stroke-width': COLORS.EDIT_VERTEX_STROKE_WIDTH,
         },
       });
@@ -238,14 +254,19 @@ export class RenderManager {
    * Render vertex and midpoint markers for editing a selected polygon.
    * @param vertices - The polygon vertex positions.
    * @param midpoints - The edge midpoint positions.
+   * @param highlightIndex - Optional index of the vertex to highlight.
    */
-  renderVertices(vertices: Position[], midpoints: Position[]): void {
+  renderVertices(vertices: Position[], midpoints: Position[], highlightIndex?: number): void {
     const features: GeoJSON.Feature[] = [];
 
-    for (const v of vertices) {
+    for (let i = 0; i < vertices.length; i++) {
+      const v = vertices[i];
       features.push({
         type: 'Feature',
-        properties: { _type: 'vertex' },
+        properties: {
+          _type: 'vertex',
+          _highlighted: i === highlightIndex,
+        },
         geometry: { type: 'Point', coordinates: [v[0], v[1]] },
       });
     }

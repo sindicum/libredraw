@@ -11,12 +11,13 @@ import type { NormalizedInputEvent } from '../../src/types/input';
 function createPointerEvent(
   lng: number,
   lat: number,
+  inputType: 'mouse' | 'touch' = 'mouse',
 ): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
     point: { x: lng * 10, y: lat * 10 },
     originalEvent: new MouseEvent('click'),
-    inputType: 'mouse',
+    inputType,
   };
 }
 
@@ -197,5 +198,53 @@ describe('Edit Flow Integration', () => {
     const undoneRingLength =
       store.getById(featureId)!.geometry.coordinates[0].length;
     expect(undoneRingLength).toBe(originalRingLength);
+  });
+
+  it('should delete vertex via long press and undo', () => {
+    const { store, history, modeManager } = createSystem();
+
+    // Draw a square
+    drawSquare(modeManager);
+    const featureId = store.getAll()[0].id;
+    const originalRingLength =
+      store.getById(featureId)!.geometry.coordinates[0].length;
+
+    // Switch to select and select
+    modeManager.setMode('select');
+    const selectImpl = modeManager.getCurrentMode()!;
+    selectImpl.onPointerDown(createPointerEvent(5, 5)); // select
+
+    // Long press on vertex (0,0) to delete it
+    selectImpl.onLongPress(createPointerEvent(0, 0));
+
+    // Ring should have one fewer vertex
+    const newRingLength =
+      store.getById(featureId)!.geometry.coordinates[0].length;
+    expect(newRingLength).toBe(originalRingLength - 1);
+
+    // Undo should restore
+    history.undo(store);
+    const undoneRingLength =
+      store.getById(featureId)!.geometry.coordinates[0].length;
+    expect(undoneRingLength).toBe(originalRingLength);
+  });
+
+  it('should NOT delete polygon on long press when missing vertex', () => {
+    const { store, modeManager } = createSystem();
+
+    // Draw a square
+    drawSquare(modeManager);
+    expect(store.getAll()).toHaveLength(1);
+
+    // Switch to select and select
+    modeManager.setMode('select');
+    const selectImpl = modeManager.getCurrentMode()!;
+    selectImpl.onPointerDown(createPointerEvent(5, 5)); // select
+
+    // Long press in the middle (not near any vertex)
+    selectImpl.onLongPress(createPointerEvent(5, 5));
+
+    // Polygon should still exist (safe)
+    expect(store.getAll()).toHaveLength(1);
   });
 });

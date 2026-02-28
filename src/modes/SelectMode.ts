@@ -12,9 +12,14 @@ import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { point as turfPoint } from '@turf/helpers';
 
 /**
- * Threshold in pixels for vertex/midpoint hit testing.
+ * Threshold in pixels for vertex/midpoint hit testing (mouse).
  */
-const HIT_THRESHOLD_PX = 10;
+const HIT_THRESHOLD_MOUSE_PX = 10;
+
+/**
+ * Threshold in pixels for vertex/midpoint hit testing (touch).
+ */
+const HIT_THRESHOLD_TOUCH_PX = 24;
 
 /**
  * Minimum number of unique vertices a polygon must maintain.
@@ -45,7 +50,7 @@ export interface SelectModeCallbacks {
   /** Update a feature in the store. */
   updateFeatureInStore(id: string, feature: LibreDrawFeature): void;
   /** Render vertex and midpoint markers for editing. */
-  renderVertices(featureId: string, vertices: Position[], midpoints: Position[]): void;
+  renderVertices(featureId: string, vertices: Position[], midpoints: Position[], highlightIndex?: number): void;
   /** Clear vertex/midpoint markers. */
   clearVertices(): void;
   /** Enable or disable map drag panning. */
@@ -71,6 +76,9 @@ export class SelectMode implements Mode {
   private dragVertexIndex = -1;
   private dragStartFeature: LibreDrawFeature | null = null;
 
+  // Highlight state
+  private highlightedVertexIndex = -1;
+
   constructor(
     callbacks: SelectModeCallbacks,
     onSelectionChange?: (selectedIds: string[]) => void,
@@ -85,6 +93,7 @@ export class SelectMode implements Mode {
 
   deactivate(): void {
     this.isActive = false;
+    this.highlightedVertexIndex = -1;
     this.endDrag();
     if (this.selectedIds.size > 0) {
       this.selectedIds.clear();
@@ -109,11 +118,13 @@ export class SelectMode implements Mode {
       const feature = this.callbacks.getFeatureById(selectedId);
       if (feature) {
         const vertices = this.getVertices(feature);
+        const threshold = this.getThreshold(event);
 
         // Check vertex hit
         const vertexIdx = this.findNearestVertex(
           vertices,
           event.point,
+          threshold,
         );
         if (vertexIdx >= 0) {
           this.startDrag(feature, vertexIdx);
@@ -122,7 +133,7 @@ export class SelectMode implements Mode {
 
         // Check midpoint hit
         const midpoints = this.computeMidpoints(vertices);
-        const midIdx = this.findNearestPoint(midpoints, event.point);
+        const midIdx = this.findNearestPoint(midpoints, event.point, threshold);
         if (midIdx >= 0) {
           // Capture state BEFORE insertion for correct undo
           const beforeInsert = FeatureStore.cloneFeature(feature);
@@ -137,6 +148,9 @@ export class SelectMode implements Mode {
         }
       }
     }
+
+    // Reset highlight on selection change
+    this.highlightedVertexIndex = -1;
 
     // Standard polygon selection logic
     const clickPoint = turfPoint([event.lngLat.lng, event.lngLat.lat]);
@@ -171,19 +185,39 @@ export class SelectMode implements Mode {
   }
 
   onPointerMove(event: NormalizedInputEvent): void {
-    if (!this.isActive || !this.dragging) return;
+    if (!this.isActive) return;
 
+    // Drag: move vertex
+    if (this.dragging) {
+      const selectedId = this.getFirstSelectedId();
+      if (!selectedId) return;
+
+      const feature = this.callbacks.getFeatureById(selectedId);
+      if (!feature) return;
+
+      const newPos: Position = [event.lngLat.lng, event.lngLat.lat];
+      const updatedFeature = this.moveVertex(feature, this.dragVertexIndex, newPos);
+      this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
+      this.callbacks.renderFeatures();
+      this.showVertexHandles(updatedFeature);
+      return;
+    }
+
+    // Non-drag: highlight nearest vertex
     const selectedId = this.getFirstSelectedId();
     if (!selectedId) return;
 
     const feature = this.callbacks.getFeatureById(selectedId);
     if (!feature) return;
 
-    const newPos: Position = [event.lngLat.lng, event.lngLat.lat];
-    const updatedFeature = this.moveVertex(feature, this.dragVertexIndex, newPos);
-    this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
-    this.callbacks.renderFeatures();
-    this.showVertexHandles(updatedFeature);
+    const vertices = this.getVertices(feature);
+    const threshold = this.getThreshold(event);
+    const nearIdx = this.findNearestVertex(vertices, event.point, threshold);
+
+    if (nearIdx !== this.highlightedVertexIndex) {
+      this.highlightedVertexIndex = nearIdx;
+      this.showVertexHandles(feature);
+    }
   }
 
   onPointerUp(_event: NormalizedInputEvent): void {
@@ -222,7 +256,8 @@ export class SelectMode implements Mode {
     if (!feature) return;
 
     const vertices = this.getVertices(feature);
-    const vertexIdx = this.findNearestVertex(vertices, event.point);
+    const threshold = this.getThreshold(event);
+    const vertexIdx = this.findNearestVertex(vertices, event.point, threshold);
 
     // Delete vertex if hit and polygon has more than MIN_VERTICES
     if (vertexIdx >= 0 && vertices.length > MIN_VERTICES) {
@@ -258,7 +293,8 @@ export class SelectMode implements Mode {
 
     // Check if long press is on a vertex — delete it
     const vertices = this.getVertices(feature);
-    const vertexIdx = this.findNearestVertex(vertices, event.point);
+    const threshold = this.getThreshold(event);
+    const vertexIdx = this.findNearestVertex(vertices, event.point, threshold);
     if (vertexIdx >= 0 && vertices.length > MIN_VERTICES) {
       const oldFeature = FeatureStore.cloneFeature(feature);
       const updatedFeature = this.removeVertex(feature, vertexIdx);
@@ -273,11 +309,7 @@ export class SelectMode implements Mode {
 
       this.callbacks.renderFeatures();
       this.showVertexHandles(updatedFeature);
-      return;
     }
-
-    // Otherwise delete the selected polygon
-    this.deleteSelected();
   }
 
   onKeyDown(key: string, _event: KeyboardEvent): void {
@@ -286,6 +318,15 @@ export class SelectMode implements Mode {
     if (key === 'Delete' || key === 'Backspace') {
       this.deleteSelected();
     }
+  }
+
+  /**
+   * Get the hit-test threshold based on input type.
+   */
+  private getThreshold(event: NormalizedInputEvent): number {
+    return event.inputType === 'touch'
+      ? HIT_THRESHOLD_TOUCH_PX
+      : HIT_THRESHOLD_MOUSE_PX;
   }
 
   /**
@@ -304,8 +345,9 @@ export class SelectMode implements Mode {
   private findNearestVertex(
     vertices: Position[],
     clickPoint: { x: number; y: number },
+    threshold?: number,
   ): number {
-    return this.findNearestPoint(vertices, clickPoint);
+    return this.findNearestPoint(vertices, clickPoint, threshold);
   }
 
   /**
@@ -315,6 +357,7 @@ export class SelectMode implements Mode {
   private findNearestPoint(
     points: Position[],
     clickPoint: { x: number; y: number },
+    threshold: number = HIT_THRESHOLD_MOUSE_PX,
   ): number {
     let minDist = Infinity;
     let minIdx = -1;
@@ -327,7 +370,7 @@ export class SelectMode implements Mode {
       const dx = clickPoint.x - screenPt.x;
       const dy = clickPoint.y - screenPt.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist <= HIT_THRESHOLD_PX && dist < minDist) {
+      if (dist <= threshold && dist < minDist) {
         minDist = dist;
         minIdx = i;
       }
@@ -371,6 +414,7 @@ export class SelectMode implements Mode {
     this.dragging = false;
     this.dragVertexIndex = -1;
     this.dragStartFeature = null;
+    this.highlightedVertexIndex = -1;
   }
 
   /**
@@ -466,7 +510,12 @@ export class SelectMode implements Mode {
   private showVertexHandles(feature: LibreDrawFeature): void {
     const vertices = this.getVertices(feature);
     const midpoints = this.computeMidpoints(vertices);
-    this.callbacks.renderVertices(feature.id, vertices, midpoints);
+    this.callbacks.renderVertices(
+      feature.id,
+      vertices,
+      midpoints,
+      this.highlightedVertexIndex >= 0 ? this.highlightedVertexIndex : undefined,
+    );
   }
 
   /**

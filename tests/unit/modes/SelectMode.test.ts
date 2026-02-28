@@ -52,6 +52,15 @@ function createPointerEvent(lng: number, lat: number): NormalizedInputEvent {
   };
 }
 
+function createTouchEvent(lng: number, lat: number): NormalizedInputEvent {
+  return {
+    lngLat: { lng, lat },
+    point: { x: lng * 10, y: lat * 10 },
+    originalEvent: new MouseEvent('click'),
+    inputType: 'touch',
+  };
+}
+
 function createCallbacks(
   featureMap: Map<string, LibreDrawFeature>,
 ): SelectModeCallbacks {
@@ -156,14 +165,15 @@ describe('SelectMode', () => {
     expect(callbacks.removeFeatureFromStore).toHaveBeenCalledWith('f1');
   });
 
-  it('should delete on long press when no vertex is hit', () => {
+  it('should NOT delete polygon on long press when no vertex is hit', () => {
     selectMode.activate();
     selectMode.onPointerDown(createPointerEvent(5, 5));
 
     // Long press in the middle of the polygon (not near any vertex)
     selectMode.onLongPress(createPointerEvent(5, 5));
 
-    expect(callbacks.removeFeatureFromStore).toHaveBeenCalledWith('f1');
+    // Safe: polygon should NOT be deleted when missing a vertex
+    expect(callbacks.removeFeatureFromStore).not.toHaveBeenCalled();
   });
 
   it('should clear selection on deactivate', () => {
@@ -202,6 +212,7 @@ describe('SelectMode', () => {
       'f1',
       expect.any(Array),
       expect.any(Array),
+      undefined,
     );
   });
 
@@ -235,6 +246,7 @@ describe('SelectMode', () => {
       'f1',
       expect.any(Array),
       expect.any(Array),
+      undefined,
     );
   });
 
@@ -358,7 +370,116 @@ describe('SelectMode', () => {
         'f1',
         expect.any(Array),
         expect.any(Array),
+        undefined,
       );
+    });
+  });
+
+  // --- Hit threshold tests ---
+
+  describe('hit threshold by input type', () => {
+    it('should use 10px threshold for mouse input', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      vi.mocked(callbacks.setDragPan).mockClear();
+
+      // Vertex at (0,0) → screen (0,0). Point at (0.9,0) → screen (9,0) → distance 9px
+      // Should hit with mouse threshold (10px)
+      selectMode.onPointerDown(createPointerEvent(0.9, 0));
+      expect(callbacks.setDragPan).toHaveBeenCalledWith(false); // drag started
+    });
+
+    it('should miss at 11px with mouse input', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      vi.mocked(callbacks.setDragPan).mockClear();
+
+      // Point at (1.1,0) → screen (11,0) → distance 11px, outside mouse threshold
+      selectMode.onPointerDown(createPointerEvent(1.1, 0));
+      // Should NOT start drag (triggers deselection instead)
+      expect(callbacks.setDragPan).not.toHaveBeenCalledWith(false);
+    });
+
+    it('should use 24px threshold for touch input', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      vi.mocked(callbacks.setDragPan).mockClear();
+
+      // Point at (2.3,0) → screen (23,0) → distance 23px
+      // Should hit with touch threshold (24px) but miss with mouse (10px)
+      selectMode.onPointerDown(createTouchEvent(2.3, 0));
+      expect(callbacks.setDragPan).toHaveBeenCalledWith(false); // drag started
+    });
+
+    it('should miss at 25px with touch input', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      vi.mocked(callbacks.setDragPan).mockClear();
+
+      // Point at (2.5,0) → screen (25,0) → distance 25px, outside touch threshold
+      selectMode.onPointerDown(createTouchEvent(2.5, 0));
+      expect(callbacks.setDragPan).not.toHaveBeenCalledWith(false);
+    });
+  });
+
+  // --- Vertex highlight tests ---
+
+  describe('vertex highlight', () => {
+    it('should call renderVertices with highlight index when mouse is near a vertex', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      vi.mocked(callbacks.renderVertices).mockClear();
+
+      // Move mouse near vertex (0,0) → screen (0,0), mouse at (0.5,0) → screen (5,0) → 5px
+      selectMode.onPointerMove(createPointerEvent(0.5, 0));
+
+      expect(callbacks.renderVertices).toHaveBeenCalledWith(
+        'f1',
+        expect.any(Array),
+        expect.any(Array),
+        0, // highlight index for vertex (0,0)
+      );
+    });
+
+    it('should clear highlight when mouse moves away from vertices', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      // Move near vertex to highlight
+      selectMode.onPointerMove(createPointerEvent(0.5, 0));
+
+      vi.mocked(callbacks.renderVertices).mockClear();
+
+      // Move far from any vertex
+      selectMode.onPointerMove(createPointerEvent(5, 5));
+
+      expect(callbacks.renderVertices).toHaveBeenCalledWith(
+        'f1',
+        expect.any(Array),
+        expect.any(Array),
+        undefined, // no highlight
+      );
+    });
+
+    it('should not update highlight when index does not change', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      // Move near vertex (0,0)
+      selectMode.onPointerMove(createPointerEvent(0.5, 0));
+
+      vi.mocked(callbacks.renderVertices).mockClear();
+
+      // Move slightly but still near same vertex
+      selectMode.onPointerMove(createPointerEvent(0.3, 0));
+
+      // Should NOT re-render since highlight index didn't change
+      expect(callbacks.renderVertices).not.toHaveBeenCalled();
     });
   });
 
