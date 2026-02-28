@@ -110,7 +110,7 @@ Set `toolbar: false` for headless mode (API-only, no UI).
 
 Full documentation with interactive demos is available at:
 
-**https://sindicum.github.io/libredraw/**
+**https://sindicum.github.io/libre-draw/**
 
 ## Development
 

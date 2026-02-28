@@ -62,5 +62,14 @@
     "map",
     "gis"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "author": "Sindicum",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sindicum/libre-draw.git"
+  },
+  "homepage": "https://sindicum.github.io/libre-draw/",
+  "bugs": {
+    "url": "https://github.com/sindicum/libre-draw/issues"
+  }
 }

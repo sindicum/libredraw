@@ -6,7 +6,7 @@ export default defineConfig({
   description:
     'MapLibre GL JS polygon drawing and editing library for TypeScript',
 
-  base: '/libredraw/',
+  base: '/libre-draw/',
 
   themeConfig: {
     nav: [
@@ -39,7 +39,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/sindicum/libredraw' },
+      { icon: 'github', link: 'https://github.com/sindicum/libre-draw' },
     ],
 
     footer: {
