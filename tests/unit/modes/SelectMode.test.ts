@@ -679,6 +679,91 @@ describe('SelectMode', () => {
     });
   });
 
+  // --- Programmatic selection ---
+
+  describe('programmatic selectFeature', () => {
+    it('should select a feature by ID', () => {
+      selectMode.activate();
+      const result = selectMode.selectFeature('f1');
+
+      expect(result).toBe(true);
+      expect(selectMode.getSelectedIds()).toEqual(['f1']);
+      expect(callbacks.renderVertices).toHaveBeenCalled();
+      expect(callbacks.emitEvent).toHaveBeenCalledWith(
+        'selectionchange',
+        expect.objectContaining({ selectedIds: ['f1'] }),
+      );
+      expect(callbacks.renderFeatures).toHaveBeenCalled();
+    });
+
+    it('should return false for non-existent feature', () => {
+      selectMode.activate();
+      const result = selectMode.selectFeature('nonexistent');
+
+      expect(result).toBe(false);
+      expect(selectMode.getSelectedIds()).toHaveLength(0);
+    });
+
+    it('should return false when mode is not active', () => {
+      const result = selectMode.selectFeature('f1');
+
+      expect(result).toBe(false);
+      expect(selectMode.getSelectedIds()).toHaveLength(0);
+    });
+
+    it('should replace existing selection', () => {
+      featureMap.set('f2', makeFeature('f2'));
+      selectMode.activate();
+      selectMode.selectFeature('f1');
+      selectMode.selectFeature('f2');
+
+      expect(selectMode.getSelectedIds()).toEqual(['f2']);
+    });
+
+    it('should cancel in-progress drag when selecting', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select f1
+      selectMode.onPointerDown(createPointerEvent(0, 0)); // start vertex drag
+
+      vi.mocked(callbacks.setDragPan).mockClear();
+      selectMode.selectFeature('f1');
+
+      expect(callbacks.setDragPan).toHaveBeenCalledWith(true);
+    });
+  });
+
+  describe('programmatic clearSelection', () => {
+    it('should clear selection', () => {
+      selectMode.activate();
+      selectMode.selectFeature('f1');
+
+      vi.mocked(callbacks.emitEvent).mockClear();
+      selectMode.clearSelection();
+
+      expect(selectMode.getSelectedIds()).toHaveLength(0);
+      expect(callbacks.clearVertices).toHaveBeenCalled();
+      expect(callbacks.emitEvent).toHaveBeenCalledWith(
+        'selectionchange',
+        expect.objectContaining({ selectedIds: [] }),
+      );
+    });
+
+    it('should be no-op when nothing is selected', () => {
+      selectMode.activate();
+      vi.mocked(callbacks.clearVertices).mockClear();
+      vi.mocked(callbacks.emitEvent).mockClear();
+
+      selectMode.clearSelection();
+
+      expect(callbacks.clearVertices).not.toHaveBeenCalled();
+    });
+
+    it('should be no-op when mode is not active', () => {
+      selectMode.clearSelection();
+      expect(callbacks.clearVertices).not.toHaveBeenCalled();
+    });
+  });
+
   // --- Self-intersection prevention ---
 
   describe('self-intersection prevention during drag', () => {

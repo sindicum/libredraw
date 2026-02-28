@@ -49,9 +49,24 @@ export class LibreDraw {
   private destroyed = false;
 
   /**
-   * Create a new LibreDraw instance.
-   * @param map - The MapLibre GL JS map instance.
-   * @param options - Configuration options.
+   * Create a new LibreDraw instance attached to a MapLibre GL JS map.
+   *
+   * Initializes all internal modules and sets up map integration.
+   * The instance is ready to use once the map's style is loaded.
+   *
+   * @param map - The MapLibre GL JS map instance to draw on.
+   * @param options - Configuration options. Defaults to toolbar enabled
+   *   and 100-action history limit.
+   *
+   * @example
+   * ```ts
+   * const draw = new LibreDraw(map);
+   * // Or with options:
+   * const draw = new LibreDraw(map, {
+   *   toolbar: { position: 'top-right' },
+   *   historyLimit: 50,
+   * });
+   * ```
    */
   constructor(map: MaplibreMap, options: LibreDrawOptions = {}) {
     this.map = map;
@@ -166,7 +181,23 @@ export class LibreDraw {
 
   /**
    * Set the active drawing mode.
-   * @param mode - The mode to activate ('idle', 'draw', or 'select').
+   *
+   * Switching modes deactivates the current mode (clearing any
+   * in-progress state) and activates the new mode. A `'modechange'`
+   * event is emitted on every transition.
+   *
+   * @param mode - `'idle'` (no interaction), `'draw'` (create polygons),
+   *   or `'select'` (select/edit existing polygons).
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.setMode('draw');
+   * draw.on('modechange', (e) => {
+   *   console.log(`${e.previousMode} -> ${e.mode}`);
+   * });
+   * ```
    */
   setMode(mode: ModeName): void {
     this.assertNotDestroyed();
@@ -175,7 +206,17 @@ export class LibreDraw {
 
   /**
    * Get the current drawing mode.
-   * @returns The active mode name.
+   *
+   * @returns The active mode name: `'idle'`, `'draw'`, or `'select'`.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * if (draw.getMode() === 'draw') {
+   *   console.log('Currently drawing');
+   * }
+   * ```
    */
   getMode(): ModeName {
     this.assertNotDestroyed();
@@ -184,7 +225,18 @@ export class LibreDraw {
 
   /**
    * Get all features as an array.
-   * @returns An array of all features in the store.
+   *
+   * Returns a snapshot of all polygon features currently in the store.
+   *
+   * @returns An array of all {@link LibreDrawFeature} objects.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const features = draw.getFeatures();
+   * console.log(`${features.length} polygons on the map`);
+   * ```
    */
   getFeatures(): LibreDrawFeature[] {
     this.assertNotDestroyed();
@@ -193,7 +245,30 @@ export class LibreDraw {
 
   /**
    * Replace all features in the store with the given GeoJSON FeatureCollection.
-   * @param geojson - A GeoJSON FeatureCollection with Polygon features.
+   *
+   * Validates the input, clears the current store and history, and
+   * re-renders the map. Undo/redo history is reset after this call.
+   *
+   * @param geojson - A GeoJSON FeatureCollection containing Polygon features.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   * @throws {LibreDrawError} If the input is not a valid FeatureCollection
+   *   or contains invalid polygon geometries.
+   *
+   * @example
+   * ```ts
+   * draw.setFeatures({
+   *   type: 'FeatureCollection',
+   *   features: [{
+   *     type: 'Feature',
+   *     geometry: {
+   *       type: 'Polygon',
+   *       coordinates: [[[0,0],[10,0],[10,10],[0,10],[0,0]]]
+   *     },
+   *     properties: {}
+   *   }]
+   * });
+   * ```
    */
   setFeatures(geojson: unknown): void {
     this.assertNotDestroyed();
@@ -205,8 +280,27 @@ export class LibreDraw {
   }
 
   /**
-   * Add features to the store from a GeoJSON FeatureCollection or array of features.
+   * Add features to the store from an array of GeoJSON Feature objects.
+   *
+   * Each feature is validated and added. Unlike {@link setFeatures},
+   * this does not clear existing features or history.
+   *
    * @param features - An array of GeoJSON Feature objects with Polygon geometry.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   * @throws {LibreDrawError} If any feature has invalid geometry.
+   *
+   * @example
+   * ```ts
+   * draw.addFeatures([{
+   *   type: 'Feature',
+   *   geometry: {
+   *     type: 'Polygon',
+   *     coordinates: [[[0,0],[5,0],[5,5],[0,5],[0,0]]]
+   *   },
+   *   properties: { name: 'Zone A' }
+   * }]);
+   * ```
    */
   addFeatures(features: unknown[]): void {
     this.assertNotDestroyed();
@@ -219,7 +313,21 @@ export class LibreDraw {
 
   /**
    * Get the IDs of currently selected features.
+   *
+   * Returns selected IDs in select mode. In other modes, returns
+   * an empty array since selection is cleared on mode transition.
+   *
    * @returns An array of selected feature IDs.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.on('selectionchange', (e) => {
+   *   const ids = draw.getSelectedFeatureIds();
+   *   console.log('Selected:', ids);
+   * });
+   * ```
    */
   getSelectedFeatureIds(): string[] {
     this.assertNotDestroyed();
@@ -227,8 +335,138 @@ export class LibreDraw {
   }
 
   /**
+   * Get a feature by its ID.
+   *
+   * @param id - The unique identifier of the feature.
+   * @returns The feature, or `undefined` if not found.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const feature = draw.getFeatureById('abc-123');
+   * if (feature) {
+   *   console.log(feature.geometry.coordinates);
+   * }
+   * ```
+   */
+  getFeatureById(id: string): LibreDrawFeature | undefined {
+    this.assertNotDestroyed();
+    return this.featureStore.getById(id);
+  }
+
+  /**
+   * Delete a feature by its ID.
+   *
+   * Removes the feature from the store, records a {@link DeleteAction}
+   * in the history (making it undoable), and emits a `'delete'` event.
+   * If the feature is currently selected, the selection is also cleared.
+   *
+   * @param id - The unique identifier of the feature to delete.
+   * @returns The deleted feature, or `undefined` if not found.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const deleted = draw.deleteFeature('abc-123');
+   * if (deleted) {
+   *   draw.undo(); // restores the deleted feature
+   * }
+   * ```
+   */
+  deleteFeature(id: string): LibreDrawFeature | undefined {
+    this.assertNotDestroyed();
+
+    const feature = this.featureStore.getById(id);
+    if (!feature) return undefined;
+
+    // Clear selection if the feature is selected
+    const selectedIds = this.selectMode.getSelectedIds();
+    if (selectedIds.includes(id)) {
+      this.selectMode.clearSelection();
+    }
+
+    this.featureStore.remove(id);
+    const action = new DeleteAction(feature);
+    this.historyManager.push(action);
+    this.eventBus.emit('delete', { feature });
+    this.renderAllFeatures();
+    this.updateToolbarHistoryState();
+
+    return feature;
+  }
+
+  /**
+   * Programmatically select a feature by its ID.
+   *
+   * Switches to select mode if not already active. The feature
+   * must exist in the store.
+   *
+   * @param id - The unique identifier of the feature to select.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   * @throws {LibreDrawError} If no feature with the given ID exists.
+   *
+   * @example
+   * ```ts
+   * draw.selectFeature('abc-123');
+   * console.log(draw.getSelectedFeatureIds()); // ['abc-123']
+   * console.log(draw.getMode()); // 'select'
+   * ```
+   */
+  selectFeature(id: string): void {
+    this.assertNotDestroyed();
+
+    const feature = this.featureStore.getById(id);
+    if (!feature) {
+      throw new LibreDrawError(`Feature not found: ${id}`);
+    }
+
+    if (this.modeManager.getMode() !== 'select') {
+      this.modeManager.setMode('select');
+    }
+
+    this.selectMode.selectFeature(id);
+  }
+
+  /**
+   * Clear the current feature selection.
+   *
+   * Deselects all features, removes vertex handles, and emits
+   * a `'selectionchange'` event. No-op if nothing is selected.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.selectFeature('abc-123');
+   * draw.clearSelection();
+   * console.log(draw.getSelectedFeatureIds()); // []
+   * ```
+   */
+  clearSelection(): void {
+    this.assertNotDestroyed();
+    this.selectMode.clearSelection();
+  }
+
+  /**
    * Undo the last action.
-   * @returns True if an action was undone.
+   *
+   * Reverts the most recent action (create, update, or delete) and
+   * updates the map rendering. If a feature is selected and its
+   * geometry changes, vertex handles are refreshed.
+   *
+   * @returns `true` if an action was undone, `false` if nothing to undo.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * if (draw.undo()) {
+   *   console.log('Action undone');
+   * }
+   * ```
    */
   undo(): boolean {
     this.assertNotDestroyed();
@@ -243,7 +481,19 @@ export class LibreDraw {
 
   /**
    * Redo the last undone action.
-   * @returns True if an action was redone.
+   *
+   * Re-applies the most recently undone action. The redo stack is
+   * cleared whenever a new action is performed.
+   *
+   * @returns `true` if an action was redone, `false` if nothing to redo.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.undo();
+   * draw.redo(); // re-applies the undone action
+   * ```
    */
   redo(): boolean {
     this.assertNotDestroyed();
@@ -258,8 +508,23 @@ export class LibreDraw {
 
   /**
    * Register an event listener.
-   * @param type - The event type.
-   * @param listener - The callback to invoke.
+   *
+   * Supported events: `'create'`, `'update'`, `'delete'`,
+   * `'selectionchange'`, `'modechange'`.
+   *
+   * @param type - The event type to listen for.
+   * @param listener - The callback to invoke when the event fires.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * draw.on('create', (e) => console.log('Created:', e.feature.id));
+   * draw.on('update', (e) => console.log('Updated:', e.feature.id));
+   * draw.on('delete', (e) => console.log('Deleted:', e.feature.id));
+   * draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
+   * draw.on('modechange', (e) => console.log(`${e.previousMode} -> ${e.mode}`));
+   * ```
    */
   on<K extends keyof LibreDrawEventMap>(
     type: K,
@@ -271,8 +536,20 @@ export class LibreDraw {
 
   /**
    * Remove an event listener.
-   * @param type - The event type.
+   *
+   * The listener must be the same function reference passed to {@link on}.
+   *
+   * @param type - The event type to stop listening for.
    * @param listener - The callback to remove.
+   *
+   * @throws {LibreDrawError} If this instance has been destroyed.
+   *
+   * @example
+   * ```ts
+   * const handler = (e: CreateEvent) => console.log(e.feature);
+   * draw.on('create', handler);
+   * draw.off('create', handler);
+   * ```
    */
   off<K extends keyof LibreDrawEventMap>(
     type: K,
@@ -284,7 +561,18 @@ export class LibreDraw {
 
   /**
    * Destroy the LibreDraw instance, cleaning up all resources.
-   * After calling destroy, all other methods will throw.
+   *
+   * Switches to idle mode, removes all map layers/sources, clears
+   * the event bus, history, and feature store, and removes the toolbar.
+   * After calling destroy, all other methods will throw
+   * {@link LibreDrawError}. Calling destroy on an already-destroyed
+   * instance is a no-op.
+   *
+   * @example
+   * ```ts
+   * draw.destroy();
+   * // draw.getFeatures(); // throws LibreDrawError
+   * ```
    */
   destroy(): void {
     if (this.destroyed) return;
@@ -338,21 +626,10 @@ export class LibreDraw {
           );
         },
         onDeleteClick: () => {
-          // Trigger delete on current selection in select mode
           if (this.modeManager.getMode() === 'select') {
             const selectedIds = this.selectMode.getSelectedIds();
             for (const id of selectedIds) {
-              const feature = this.featureStore.getById(id);
-              if (feature) {
-                this.featureStore.remove(id);
-                const action = new DeleteAction(feature);
-                this.historyManager.push(action);
-                this.eventBus.emit('delete', { feature });
-              }
-            }
-            if (selectedIds.length > 0) {
-              this.renderAllFeatures();
-              this.updateToolbarHistoryState();
+              this.deleteFeature(id);
             }
           }
         },

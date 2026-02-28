@@ -6,6 +6,7 @@ import { ModeManager } from '../../src/core/ModeManager';
 import { IdleMode } from '../../src/modes/IdleMode';
 import { DrawMode } from '../../src/modes/DrawMode';
 import { SelectMode } from '../../src/modes/SelectMode';
+import { DeleteAction } from '../../src/types/features';
 import type { NormalizedInputEvent } from '../../src/types/input';
 
 function createPointerEvent(
@@ -293,5 +294,67 @@ describe('Edit Flow Integration', () => {
 
     // Polygon should still exist (safe)
     expect(store.getAll()).toHaveLength(1);
+  });
+
+  it('should programmatically select and clear selection', () => {
+    const { store, modeManager, selectMode } = createSystem();
+
+    drawSquare(modeManager);
+    const featureId = store.getAll()[0].id;
+
+    modeManager.setMode('select');
+
+    // Programmatic select
+    const result = selectMode.selectFeature(featureId);
+    expect(result).toBe(true);
+    expect(selectMode.getSelectedIds()).toEqual([featureId]);
+
+    // Clear
+    selectMode.clearSelection();
+    expect(selectMode.getSelectedIds()).toHaveLength(0);
+  });
+
+  it('should delete a feature programmatically and undo/redo', () => {
+    const { store, history, modeManager } = createSystem();
+
+    drawSquare(modeManager);
+    const featureId = store.getAll()[0].id;
+    const feature = store.getById(featureId)!;
+
+    // Delete
+    store.remove(featureId);
+    const action = new DeleteAction(feature);
+    history.push(action);
+
+    expect(store.getAll()).toHaveLength(0);
+
+    // Undo (restore)
+    history.undo(store);
+    expect(store.getAll()).toHaveLength(1);
+    expect(store.getById(featureId)).toBeDefined();
+
+    // Redo (delete again)
+    history.redo(store);
+    expect(store.getAll()).toHaveLength(0);
+  });
+
+  it('should clear selection when deleting a selected feature', () => {
+    const { store, history, modeManager, selectMode } = createSystem();
+
+    drawSquare(modeManager);
+    const featureId = store.getAll()[0].id;
+
+    modeManager.setMode('select');
+    selectMode.selectFeature(featureId);
+    expect(selectMode.getSelectedIds()).toContain(featureId);
+
+    // Clear selection first, then delete
+    const feature = store.getById(featureId)!;
+    selectMode.clearSelection();
+    store.remove(featureId);
+    history.push(new DeleteAction(feature));
+
+    expect(selectMode.getSelectedIds()).toHaveLength(0);
+    expect(store.getAll()).toHaveLength(0);
   });
 });

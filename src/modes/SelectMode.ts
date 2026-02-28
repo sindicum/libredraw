@@ -114,6 +114,49 @@ export class SelectMode implements Mode {
     return Array.from(this.selectedIds);
   }
 
+  /**
+   * Programmatically select a feature by ID.
+   *
+   * Replaces any existing selection. Renders vertex handles and
+   * emits a selectionchange event. Cancels any in-progress drag.
+   *
+   * @param id - The feature ID to select.
+   * @returns `true` if the feature was found and selected, `false` otherwise.
+   */
+  selectFeature(id: string): boolean {
+    if (!this.isActive) return false;
+
+    const feature = this.callbacks.getFeatureById(id);
+    if (!feature) return false;
+
+    this.highlightedVertexIndex = -1;
+    this.endDrag();
+    this.selectedIds.clear();
+    this.selectedIds.add(id);
+    this.showVertexHandles(feature);
+    this.notifySelectionChange();
+    this.callbacks.renderFeatures();
+    return true;
+  }
+
+  /**
+   * Programmatically clear the current selection.
+   *
+   * Removes vertex handles and emits a selectionchange event.
+   * No-op if nothing is selected or mode is not active.
+   */
+  clearSelection(): void {
+    if (!this.isActive) return;
+    if (this.selectedIds.size === 0) return;
+
+    this.highlightedVertexIndex = -1;
+    this.endDrag();
+    this.selectedIds.clear();
+    this.callbacks.clearVertices();
+    this.notifySelectionChange();
+    this.callbacks.renderFeatures();
+  }
+
   onPointerDown(event: NormalizedInputEvent): void {
     if (!this.isActive) return;
 
