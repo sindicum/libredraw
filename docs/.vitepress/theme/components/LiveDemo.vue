@@ -1,6 +1,7 @@
 <template>
   <ClientOnly>
     <div class="demo-container">
+      <div v-if="error" class="demo-error">{{ error }}</div>
       <div
         ref="mapContainer"
         :class="fullsize ? 'demo-map-fullsize' : 'demo-map'"
@@ -39,6 +40,7 @@ interface LogEntry {
 const mapContainer = ref<HTMLDivElement | null>(null);
 const logContainer = ref<HTMLDivElement | null>(null);
 const logs = ref<LogEntry[]>([]);
+const error = ref<string | null>(null);
 
 let drawInstance: any = null;
 let mapInstance: any = null;
@@ -56,85 +58,91 @@ function addLog(type: string, message: string) {
 }
 
 onMounted(async () => {
-  if (!mapContainer.value) return;
+  try {
+    await nextTick();
+    if (!mapContainer.value) return;
 
-  const maplibregl = await import('maplibre-gl');
-  await import('maplibre-gl/dist/maplibre-gl.css');
-  const { LibreDraw } = await import('libre-draw');
+    const maplibregl = await import('maplibre-gl');
+    await import('maplibre-gl/dist/maplibre-gl.css');
+    const { LibreDraw } = await import('libre-draw');
 
-  const map = new maplibregl.Map({
-    container: mapContainer.value,
-    style: {
-      version: 8,
-      sources: {
-        osm: {
-          type: 'raster',
-          tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-          tileSize: 256,
-          attribution: '&copy; OpenStreetMap contributors',
+    const map = new maplibregl.Map({
+      container: mapContainer.value,
+      style: {
+        version: 8,
+        sources: {
+          osm: {
+            type: 'raster',
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            attribution: '&copy; OpenStreetMap contributors',
+          },
+        },
+        layers: [
+          {
+            id: 'osm',
+            type: 'raster',
+            source: 'osm',
+          },
+        ],
+      },
+      center: [139.6917, 35.6895],
+      zoom: 12,
+    });
+
+    mapInstance = map;
+
+    const draw = new LibreDraw(map, {
+      toolbar: {
+        position: 'top-right',
+        controls: {
+          draw: true,
+          select: true,
+          delete: true,
+          undo: true,
+          redo: true,
         },
       },
-      layers: [
-        {
-          id: 'osm',
-          type: 'raster',
-          source: 'osm',
-        },
-      ],
-    },
-    center: [139.6917, 35.6895],
-    zoom: 12,
-  });
+    });
 
-  mapInstance = map;
+    drawInstance = draw;
 
-  const draw = new LibreDraw(map, {
-    toolbar: {
-      position: 'top-right',
-      controls: {
-        draw: true,
-        select: true,
-        delete: true,
-        undo: true,
-        redo: true,
-      },
-    },
-  });
-
-  drawInstance = draw;
-
-  draw.on('create', (e) => {
-    addLog(
-      'create',
-      `Polygon created (${e.feature.geometry.coordinates[0].length - 1} vertices)`,
-    );
-  });
-
-  draw.on('update', (e) => {
-    addLog(
-      'update',
-      `Polygon updated (${e.feature.geometry.coordinates[0].length - 1} vertices)`,
-    );
-  });
-
-  draw.on('delete', (e) => {
-    addLog('delete', `Polygon deleted: ${e.feature.id.slice(0, 8)}...`);
-  });
-
-  draw.on('selectionchange', (e) => {
-    if (e.selectedIds.length > 0) {
+    draw.on('create', (e) => {
       addLog(
-        'selectionchange',
-        `Selected: ${e.selectedIds.map((id) => id.slice(0, 8) + '...').join(', ')}`,
+        'create',
+        `Polygon created (${e.feature.geometry.coordinates[0].length - 1} vertices)`,
       );
-    } else {
-      addLog('selectionchange', 'Selection cleared');
-    }
-  });
+    });
 
-  draw.on('modechange', (e) => {
-    addLog('modechange', `${e.previousMode} → ${e.mode}`);
-  });
+    draw.on('update', (e) => {
+      addLog(
+        'update',
+        `Polygon updated (${e.feature.geometry.coordinates[0].length - 1} vertices)`,
+      );
+    });
+
+    draw.on('delete', (e) => {
+      addLog('delete', `Polygon deleted: ${e.feature.id.slice(0, 8)}...`);
+    });
+
+    draw.on('selectionchange', (e) => {
+      if (e.selectedIds.length > 0) {
+        addLog(
+          'selectionchange',
+          `Selected: ${e.selectedIds.map((id) => id.slice(0, 8) + '...').join(', ')}`,
+        );
+      } else {
+        addLog('selectionchange', 'Selection cleared');
+      }
+    });
+
+    draw.on('modechange', (e) => {
+      addLog('modechange', `${e.previousMode} → ${e.mode}`);
+    });
+  } catch (e: any) {
+    error.value = `Failed to initialize: ${e.message}`;
+    console.error('LiveDemo init error:', e);
+  }
 });
 
 onUnmounted(() => {

@@ -119,3 +119,18 @@
   background: var(--vp-c-danger-1);
   color: var(--vp-c-white);
 }
+
+.demo-error {
+  padding: 12px 16px;
+  background: #fef2f2;
+  color: #dc2626;
+  font-size: 13px;
+  font-family: var(--vp-font-family-mono);
+  border-bottom: 1px solid #fecaca;
+}
+
+.dark .demo-error {
+  background: #450a0a;
+  color: #fca5a5;
+  border-bottom-color: #7f1d1d;
+}
