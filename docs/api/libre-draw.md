@@ -27,7 +27,7 @@ Initializes all internal modules and sets up map integration. The instance is re
 
 ```ts
 import maplibregl from 'maplibre-gl';
-import { LibreDraw } from 'libre-draw';
+import { LibreDraw } from '@sindicum/libre-draw';
 
 const map = new maplibregl.Map({
   container: 'map',

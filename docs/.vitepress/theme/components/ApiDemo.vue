@@ -137,7 +137,7 @@ onMounted(async () => {
 
     const maplibregl = await import('maplibre-gl');
     await import('maplibre-gl/dist/maplibre-gl.css');
-    const { LibreDraw } = await import('libre-draw');
+    const { LibreDraw } = await import('@sindicum/libre-draw');
 
     const map = new maplibregl.Map({
       container: mapContainer.value,

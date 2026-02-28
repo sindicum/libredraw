@@ -54,7 +54,7 @@ export default defineConfig({
   vite: {
     resolve: {
       alias: {
-        'libre-draw': resolve(__dirname, '../../src/index.ts'),
+        '@sindicum/libre-draw': resolve(__dirname, '../../src/index.ts'),
       },
     },
     ssr: {

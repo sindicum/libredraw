@@ -1,6 +1,6 @@
 # Types
 
-All types are exported as TypeScript type-only exports from `libre-draw`.
+All types are exported as TypeScript type-only exports from `@sindicum/libre-draw`.
 
 ```ts
 import type {
@@ -17,7 +17,7 @@ import type {
   ActionType,
   NormalizedInputEvent,
   InputType,
-} from 'libre-draw';
+} from '@sindicum/libre-draw';
 ```
 
 ---
@@ -286,7 +286,7 @@ Thrown when:
 - Invalid polygon geometry (self-intersecting, out-of-bounds coordinates, etc.)
 
 ```ts
-import { LibreDrawError } from 'libre-draw';
+import { LibreDrawError } from '@sindicum/libre-draw';
 
 try {
   draw.setFeatures({ invalid: 'data' });

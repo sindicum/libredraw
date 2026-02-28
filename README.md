@@ -1,6 +1,6 @@
 # LibreDraw
 
-[![npm version](https://img.shields.io/npm/v/libre-draw.svg)](https://www.npmjs.com/package/libre-draw)
+[![npm version](https://img.shields.io/npm/v/%40sindicum%2Flibre-draw.svg)](https://www.npmjs.com/package/@sindicum/libre-draw)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 A polygon drawing and editing library for [MapLibre GL JS](https://maplibre.org/).
@@ -22,13 +22,13 @@ A polygon drawing and editing library for [MapLibre GL JS](https://maplibre.org/
 ## Quick Start
 
 ```bash
-npm install libre-draw maplibre-gl
+npm install @sindicum/libre-draw maplibre-gl
 ```
 
 ```typescript
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { LibreDraw } from 'libre-draw';
+import { LibreDraw } from '@sindicum/libre-draw';
 
 const map = new maplibregl.Map({
   container: 'map',
@@ -58,48 +58,50 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 
 ### Methods
 
-| Method | Description |
-|---|---|
-| `setMode(mode)` | Set active mode: `'idle'`, `'draw'`, or `'select'` |
-| `getMode()` | Get the current mode |
-| `getFeatures()` | Get all features as an array |
-| `getFeatureById(id)` | Get a single feature by ID |
-| `setFeatures(geojson)` | Replace all features with a GeoJSON FeatureCollection |
-| `addFeatures(features)` | Add an array of GeoJSON Feature objects |
-| `deleteFeature(id)` | Delete a feature by ID (undoable) |
-| `selectFeature(id)` | Programmatically select a feature |
-| `clearSelection()` | Clear the current selection |
-| `getSelectedFeatureIds()` | Get IDs of selected features |
-| `undo()` | Undo the last action |
-| `redo()` | Redo the last undone action |
-| `on(event, callback)` | Register an event listener |
-| `off(event, callback)` | Remove an event listener |
-| `destroy()` | Clean up all resources |
+| Method                    | Description                                           |
+| ------------------------- | ----------------------------------------------------- |
+| `setMode(mode)`           | Set active mode: `'idle'`, `'draw'`, or `'select'`    |
+| `getMode()`               | Get the current mode                                  |
+| `getFeatures()`           | Get all features as an array                          |
+| `getFeatureById(id)`      | Get a single feature by ID                            |
+| `setFeatures(geojson)`    | Replace all features with a GeoJSON FeatureCollection |
+| `addFeatures(features)`   | Add an array of GeoJSON Feature objects               |
+| `deleteFeature(id)`       | Delete a feature by ID (undoable)                     |
+| `selectFeature(id)`       | Programmatically select a feature                     |
+| `clearSelection()`        | Clear the current selection                           |
+| `getSelectedFeatureIds()` | Get IDs of selected features                          |
+| `undo()`                  | Undo the last action                                  |
+| `redo()`                  | Redo the last undone action                           |
+| `on(event, callback)`     | Register an event listener                            |
+| `off(event, callback)`    | Remove an event listener                              |
+| `destroy()`               | Clean up all resources                                |
 
 ### Events
 
-| Event | Payload | Description |
-|---|---|---|
-| `create` | `{ feature }` | A polygon was created |
-| `update` | `{ feature }` | A polygon was updated |
-| `delete` | `{ feature }` | A polygon was deleted |
-| `selectionchange` | `{ selectedIds }` | Selection changed |
-| `modechange` | `{ mode, previousMode }` | Active mode changed |
+| Event             | Payload                  | Description           |
+| ----------------- | ------------------------ | --------------------- |
+| `create`          | `{ feature }`            | A polygon was created |
+| `update`          | `{ feature }`            | A polygon was updated |
+| `delete`          | `{ feature }`            | A polygon was deleted |
+| `selectionchange` | `{ selectedIds }`        | Selection changed     |
+| `modechange`      | `{ mode, previousMode }` | Active mode changed   |
 
 ### Options
 
 ```typescript
 interface LibreDrawOptions {
-  toolbar?: boolean | {
-    position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
-    controls?: {
-      draw?: boolean;
-      select?: boolean;
-      delete?: boolean;
-      undo?: boolean;
-      redo?: boolean;
-    };
-  };
+  toolbar?:
+    | boolean
+    | {
+        position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+        controls?: {
+          draw?: boolean;
+          select?: boolean;
+          delete?: boolean;
+          undo?: boolean;
+          redo?: boolean;
+        };
+      };
   historyLimit?: number; // Default: 100
 }
 ```

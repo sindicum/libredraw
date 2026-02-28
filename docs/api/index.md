@@ -49,8 +49,8 @@ All types are exported as TypeScript type-only exports:
 ## Quick Example
 
 ```ts
-import { LibreDraw } from 'libre-draw';
-import type { LibreDrawFeature, CreateEvent } from 'libre-draw';
+import { LibreDraw } from '@sindicum/libre-draw';
+import type { LibreDrawFeature, CreateEvent } from '@sindicum/libre-draw';
 
 const draw = new LibreDraw(map);
 

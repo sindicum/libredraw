@@ -5,7 +5,7 @@
 Install LibreDraw alongside MapLibre GL JS:
 
 ```bash
-npm install libre-draw maplibre-gl
+npm install @sindicum/libre-draw maplibre-gl
 ```
 
 ## Basic Usage
@@ -13,7 +13,7 @@ npm install libre-draw maplibre-gl
 ```ts
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { LibreDraw } from 'libre-draw';
+import { LibreDraw } from '@sindicum/libre-draw';
 
 // Create a MapLibre map
 const map = new maplibregl.Map({
