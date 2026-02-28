@@ -2,6 +2,12 @@
 
 The main facade class that provides all polygon drawing and editing functionality. Create an instance by passing a MapLibre GL JS map.
 
+## Interactive Playground
+
+Try the API methods directly. Use the mode buttons and action buttons to call LibreDraw methods and see the results in the log.
+
+<ApiDemo />
+
 ## Constructor
 
 ### `new LibreDraw(map, options?)`

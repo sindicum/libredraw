@@ -29,6 +29,10 @@ const draw = new LibreDraw(map);
 
 That's it! A toolbar with draw, select, delete, undo, and redo buttons appears on the map. Click the draw button to start creating polygons.
 
+### Try it
+
+<BasicDemo />
+
 ## With Options
 
 ```ts

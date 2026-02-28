@@ -10,6 +10,12 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 | `draw` | Click to add vertices, double-click to close polygon. | Toolbar draw button / `setMode('draw')` |
 | `select` | Click to select, drag to edit vertices or move polygon. | Toolbar select button / `setMode('select')` |
 
+### Try it
+
+Use the buttons below to switch between modes. Draw some polygons in **draw** mode, then switch to **select** mode to edit them.
+
+<ModesDemo />
+
 ## Idle Mode
 
 The default mode. No drawing or editing interactions are active. The map behaves normally — pan, zoom, and all standard MapLibre interactions work.

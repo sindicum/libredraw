@@ -1,13 +1,26 @@
 <template>
   <ClientOnly>
     <div class="demo-container">
-      <div
-        ref="mapContainer"
-        :class="fullsize ? 'demo-map-fullsize' : 'demo-map'"
-      ></div>
+      <div ref="mapContainer" class="demo-map-compact"></div>
+      <div class="demo-controls">
+        <div class="demo-controls-row">
+          <span class="demo-controls-label">Mode:</span>
+          <button
+            v-for="mode in modes"
+            :key="mode"
+            :class="['demo-btn', { 'demo-btn-active': currentMode === mode }]"
+            @click="switchMode(mode)"
+          >
+            {{ mode }}
+          </button>
+        </div>
+        <div class="demo-controls-status">
+          Current mode: <strong>{{ currentMode }}</strong>
+        </div>
+      </div>
       <div class="demo-log" ref="logContainer">
         <p v-if="logs.length === 0" class="demo-log-empty">
-          Draw a polygon to see events here...
+          Switch modes and interact with the map...
         </p>
         <p
           v-for="(log, index) in logs"
@@ -22,14 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, type PropType } from 'vue';
-
-defineProps({
-  fullsize: {
-    type: Boolean as PropType<boolean>,
-    default: false,
-  },
-});
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 
 interface LogEntry {
   type: string;
@@ -39,20 +45,26 @@ interface LogEntry {
 const mapContainer = ref<HTMLDivElement | null>(null);
 const logContainer = ref<HTMLDivElement | null>(null);
 const logs = ref<LogEntry[]>([]);
+const currentMode = ref('idle');
+const modes = ['idle', 'draw', 'select'] as const;
 
 let drawInstance: any = null;
 let mapInstance: any = null;
 
 function addLog(type: string, message: string) {
   logs.value.push({ type, message });
-  if (logs.value.length > 50) {
-    logs.value.shift();
-  }
+  if (logs.value.length > 50) logs.value.shift();
   nextTick(() => {
     if (logContainer.value) {
       logContainer.value.scrollTop = logContainer.value.scrollHeight;
     }
   });
+}
+
+function switchMode(mode: string) {
+  if (drawInstance) {
+    drawInstance.setMode(mode);
+  }
 }
 
 onMounted(async () => {
@@ -74,66 +86,40 @@ onMounted(async () => {
           attribution: '&copy; OpenStreetMap contributors',
         },
       },
-      layers: [
-        {
-          id: 'osm',
-          type: 'raster',
-          source: 'osm',
-        },
-      ],
+      layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
     },
     center: [139.6917, 35.6895],
-    zoom: 12,
+    zoom: 13,
   });
 
   mapInstance = map;
 
-  const draw = new LibreDraw(map, {
-    toolbar: {
-      position: 'top-right',
-      controls: {
-        draw: true,
-        select: true,
-        delete: true,
-        undo: true,
-        redo: true,
-      },
-    },
-  });
-
+  const draw = new LibreDraw(map, { toolbar: false });
   drawInstance = draw;
 
-  draw.on('create', (e) => {
-    addLog(
-      'create',
-      `Polygon created (${e.feature.geometry.coordinates[0].length - 1} vertices)`,
-    );
+  draw.on('modechange', (e: any) => {
+    currentMode.value = e.mode;
+    addLog('modechange', `${e.previousMode} → ${e.mode}`);
   });
 
-  draw.on('update', (e) => {
-    addLog(
-      'update',
-      `Polygon updated (${e.feature.geometry.coordinates[0].length - 1} vertices)`,
-    );
+  draw.on('create', (e: any) => {
+    addLog('create', `Polygon created (${e.feature.geometry.coordinates[0].length - 1} vertices)`);
   });
 
-  draw.on('delete', (e) => {
-    addLog('delete', `Polygon deleted: ${e.feature.id.slice(0, 8)}...`);
+  draw.on('update', (e: any) => {
+    addLog('update', `Polygon updated`);
   });
 
-  draw.on('selectionchange', (e) => {
+  draw.on('delete', (e: any) => {
+    addLog('delete', `Polygon deleted`);
+  });
+
+  draw.on('selectionchange', (e: any) => {
     if (e.selectedIds.length > 0) {
-      addLog(
-        'selectionchange',
-        `Selected: ${e.selectedIds.map((id) => id.slice(0, 8) + '...').join(', ')}`,
-      );
+      addLog('selectionchange', `Selected ${e.selectedIds.length} feature(s)`);
     } else {
       addLog('selectionchange', 'Selection cleared');
     }
-  });
-
-  draw.on('modechange', (e) => {
-    addLog('modechange', `${e.previousMode} → ${e.mode}`);
   });
 });
 
