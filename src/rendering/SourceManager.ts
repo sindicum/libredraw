@@ -6,6 +6,7 @@ import type { Map as MaplibreMap, GeoJSONSource } from 'maplibre-gl';
 export const SOURCE_IDS = {
   FEATURES: 'libre-draw-features',
   PREVIEW: 'libre-draw-preview',
+  EDIT_VERTICES: 'libre-draw-edit-vertices',
 } as const;
 
 /**
@@ -51,6 +52,13 @@ export class SourceManager {
       });
     }
 
+    if (!this.map.getSource(SOURCE_IDS.EDIT_VERTICES)) {
+      this.map.addSource(SOURCE_IDS.EDIT_VERTICES, {
+        type: 'geojson',
+        data: EMPTY_FC,
+      });
+    }
+
     this.initialized = true;
   }
 
@@ -84,6 +92,24 @@ export class SourceManager {
   }
 
   /**
+   * Update the edit vertices source with new GeoJSON data.
+   * @param data - A GeoJSON FeatureCollection of Point features.
+   */
+  updateEditVertices(data: GeoJSON.FeatureCollection): void {
+    const source = this.map.getSource<GeoJSONSource>(SOURCE_IDS.EDIT_VERTICES);
+    if (source) {
+      source.setData(data);
+    }
+  }
+
+  /**
+   * Clear the edit vertices source.
+   */
+  clearEditVertices(): void {
+    this.updateEditVertices(EMPTY_FC);
+  }
+
+  /**
    * Remove all sources from the map.
    */
   destroy(): void {
@@ -92,6 +118,9 @@ export class SourceManager {
     }
     if (this.map.getSource(SOURCE_IDS.PREVIEW)) {
       this.map.removeSource(SOURCE_IDS.PREVIEW);
+    }
+    if (this.map.getSource(SOURCE_IDS.EDIT_VERTICES)) {
+      this.map.removeSource(SOURCE_IDS.EDIT_VERTICES);
     }
     this.initialized = false;
   }

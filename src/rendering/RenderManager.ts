@@ -10,6 +10,8 @@ export const LAYER_IDS = {
   OUTLINE: 'libre-draw-outline',
   VERTICES: 'libre-draw-vertices',
   PREVIEW: 'libre-draw-preview',
+  EDIT_VERTICES: 'libre-draw-edit-vertices',
+  EDIT_MIDPOINTS: 'libre-draw-edit-midpoints',
 } as const;
 
 /**
@@ -30,6 +32,13 @@ const COLORS = {
   PREVIEW_FILL_OPACITY: 0.1,
   PREVIEW_OUTLINE: '#3bb2d0',
   PREVIEW_OUTLINE_DASH: [2, 2] as number[],
+  EDIT_VERTEX_COLOR: '#ffffff',
+  EDIT_VERTEX_STROKE: '#3bb2d0',
+  EDIT_VERTEX_RADIUS: 5,
+  EDIT_VERTEX_STROKE_WIDTH: 2,
+  MIDPOINT_COLOR: '#3bb2d0',
+  MIDPOINT_OPACITY: 0.5,
+  MIDPOINT_RADIUS: 3,
 } as const;
 
 /**
@@ -137,6 +146,37 @@ export class RenderManager {
       });
     }
 
+    // Edit midpoints layer (semi-transparent small circles at edge midpoints)
+    if (!this.map.getLayer(LAYER_IDS.EDIT_MIDPOINTS)) {
+      this.map.addLayer({
+        id: LAYER_IDS.EDIT_MIDPOINTS,
+        type: 'circle',
+        source: SOURCE_IDS.EDIT_VERTICES,
+        filter: ['==', ['get', '_type'], 'midpoint'],
+        paint: {
+          'circle-radius': COLORS.MIDPOINT_RADIUS,
+          'circle-color': COLORS.MIDPOINT_COLOR,
+          'circle-opacity': COLORS.MIDPOINT_OPACITY,
+        },
+      });
+    }
+
+    // Edit vertices layer (white circles with blue stroke at polygon vertices)
+    if (!this.map.getLayer(LAYER_IDS.EDIT_VERTICES)) {
+      this.map.addLayer({
+        id: LAYER_IDS.EDIT_VERTICES,
+        type: 'circle',
+        source: SOURCE_IDS.EDIT_VERTICES,
+        filter: ['==', ['get', '_type'], 'vertex'],
+        paint: {
+          'circle-radius': COLORS.EDIT_VERTEX_RADIUS,
+          'circle-color': COLORS.EDIT_VERTEX_COLOR,
+          'circle-stroke-color': COLORS.EDIT_VERTEX_STROKE,
+          'circle-stroke-width': COLORS.EDIT_VERTEX_STROKE_WIDTH,
+        },
+      });
+    }
+
     this.initialized = true;
   }
 
@@ -195,6 +235,43 @@ export class RenderManager {
   }
 
   /**
+   * Render vertex and midpoint markers for editing a selected polygon.
+   * @param vertices - The polygon vertex positions.
+   * @param midpoints - The edge midpoint positions.
+   */
+  renderVertices(vertices: Position[], midpoints: Position[]): void {
+    const features: GeoJSON.Feature[] = [];
+
+    for (const v of vertices) {
+      features.push({
+        type: 'Feature',
+        properties: { _type: 'vertex' },
+        geometry: { type: 'Point', coordinates: [v[0], v[1]] },
+      });
+    }
+
+    for (const m of midpoints) {
+      features.push({
+        type: 'Feature',
+        properties: { _type: 'midpoint' },
+        geometry: { type: 'Point', coordinates: [m[0], m[1]] },
+      });
+    }
+
+    this.sourceManager.updateEditVertices({
+      type: 'FeatureCollection',
+      features,
+    });
+  }
+
+  /**
+   * Clear the vertex/midpoint markers.
+   */
+  clearVertices(): void {
+    this.sourceManager.clearEditVertices();
+  }
+
+  /**
    * Set the IDs of selected features for visual highlighting.
    * @param ids - The selected feature IDs.
    */
@@ -207,6 +284,8 @@ export class RenderManager {
    */
   destroy(): void {
     const layerIds = [
+      LAYER_IDS.EDIT_VERTICES,
+      LAYER_IDS.EDIT_MIDPOINTS,
       LAYER_IDS.PREVIEW,
       LAYER_IDS.VERTICES,
       LAYER_IDS.OUTLINE,

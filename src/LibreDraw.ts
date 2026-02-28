@@ -94,6 +94,22 @@ export class LibreDraw {
         renderFeatures: () => this.renderAllFeatures(),
         getFeatureById: (id) => this.featureStore.getById(id),
         getAllFeatures: () => this.featureStore.getAll(),
+        getScreenPoint: (lngLat) => {
+          const pt = map.project([lngLat.lng, lngLat.lat]);
+          return { x: pt.x, y: pt.y };
+        },
+        updateFeatureInStore: (id, feature) =>
+          this.featureStore.update(id, feature),
+        renderVertices: (_featureId, vertices, midpoints) =>
+          this.renderManager.renderVertices(vertices, midpoints),
+        clearVertices: () => this.renderManager.clearVertices(),
+        setDragPan: (enabled) => {
+          if (enabled) {
+            map.dragPan.enable();
+          } else {
+            map.dragPan.disable();
+          }
+        },
       },
       (selectedIds) => {
         this.renderManager.setSelectedIds(selectedIds);
@@ -112,11 +128,14 @@ export class LibreDraw {
         this.toolbar.setActiveMode(mode);
       }
 
-      // Disable map interactions that conflict with drawing
+      // Disable map interactions that conflict with drawing/editing
       if (mode === 'draw') {
         map.dragPan.disable();
         map.doubleClickZoom.disable();
-      } else if (previousMode === 'draw') {
+      } else if (mode === 'select') {
+        map.doubleClickZoom.disable();
+        // dragPan stays enabled; SelectMode disables it during vertex drag
+      } else {
         map.dragPan.enable();
         map.doubleClickZoom.enable();
       }
@@ -216,6 +235,7 @@ export class LibreDraw {
     const result = this.historyManager.undo(this.featureStore);
     if (result) {
       this.renderAllFeatures();
+      this.selectMode.refreshVertexHandles();
       this.updateToolbarHistoryState();
     }
     return result;
@@ -230,6 +250,7 @@ export class LibreDraw {
     const result = this.historyManager.redo(this.featureStore);
     if (result) {
       this.renderAllFeatures();
+      this.selectMode.refreshVertexHandles();
       this.updateToolbarHistoryState();
     }
     return result;

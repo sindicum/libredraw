@@ -24,6 +24,25 @@ function makeFeature(id: string): LibreDrawFeature {
   };
 }
 
+function makeTriangle(id: string): LibreDrawFeature {
+  return {
+    id,
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [0, 0],
+          [10, 0],
+          [5, 10],
+          [0, 0],
+        ],
+      ],
+    },
+    properties: {},
+  };
+}
+
 function createPointerEvent(lng: number, lat: number): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
@@ -33,28 +52,48 @@ function createPointerEvent(lng: number, lat: number): NormalizedInputEvent {
   };
 }
 
+function createCallbacks(
+  featureMap: Map<string, LibreDrawFeature>,
+): SelectModeCallbacks {
+  return {
+    removeFeatureFromStore: vi.fn((id: string) => {
+      const f = featureMap.get(id);
+      featureMap.delete(id);
+      return f;
+    }),
+    pushToHistory: vi.fn(),
+    emitEvent: vi.fn(),
+    renderFeatures: vi.fn(),
+    getFeatureById: vi.fn((id: string) => featureMap.get(id)),
+    getAllFeatures: vi.fn(() => Array.from(featureMap.values())),
+    getScreenPoint: vi.fn((lngLat: { lng: number; lat: number }) => ({
+      x: lngLat.lng * 10,
+      y: lngLat.lat * 10,
+    })),
+    updateFeatureInStore: vi.fn((id: string, feature: LibreDrawFeature) => {
+      featureMap.set(id, feature);
+    }),
+    renderVertices: vi.fn(),
+    clearVertices: vi.fn(),
+    setDragPan: vi.fn(),
+  };
+}
+
 describe('SelectMode', () => {
   let callbacks: SelectModeCallbacks;
   let selectMode: SelectMode;
   let onSelectionChange: ReturnType<typeof vi.fn>;
-  const features = [makeFeature('f1')];
+  let featureMap: Map<string, LibreDrawFeature>;
 
   beforeEach(() => {
-    callbacks = {
-      removeFeatureFromStore: vi.fn((id: string) =>
-        features.find((f) => f.id === id),
-      ),
-      pushToHistory: vi.fn(),
-      emitEvent: vi.fn(),
-      renderFeatures: vi.fn(),
-      getFeatureById: vi.fn((id: string) =>
-        features.find((f) => f.id === id),
-      ),
-      getAllFeatures: vi.fn(() => features),
-    };
+    featureMap = new Map();
+    featureMap.set('f1', makeFeature('f1'));
+    callbacks = createCallbacks(featureMap);
     onSelectionChange = vi.fn();
     selectMode = new SelectMode(callbacks, onSelectionChange);
   });
+
+  // --- Original selection tests ---
 
   it('should not respond to events when inactive', () => {
     selectMode.onPointerDown(createPointerEvent(5, 5));
@@ -63,7 +102,6 @@ describe('SelectMode', () => {
 
   it('should select a feature when clicking inside it', () => {
     selectMode.activate();
-    // Click inside the polygon (0,0)-(10,0)-(10,10)-(0,10)
     selectMode.onPointerDown(createPointerEvent(5, 5));
 
     expect(selectMode.getSelectedIds()).toContain('f1');
@@ -118,10 +156,11 @@ describe('SelectMode', () => {
     expect(callbacks.removeFeatureFromStore).toHaveBeenCalledWith('f1');
   });
 
-  it('should delete on long press (mobile)', () => {
+  it('should delete on long press when no vertex is hit', () => {
     selectMode.activate();
     selectMode.onPointerDown(createPointerEvent(5, 5));
 
+    // Long press in the middle of the polygon (not near any vertex)
     selectMode.onLongPress(createPointerEvent(5, 5));
 
     expect(callbacks.removeFeatureFromStore).toHaveBeenCalledWith('f1');
@@ -151,5 +190,240 @@ describe('SelectMode', () => {
     selectMode.onPointerDown(createPointerEvent(5, 5));
 
     expect(onSelectionChange).toHaveBeenCalledWith(['f1']);
+  });
+
+  // --- Vertex handles display ---
+
+  it('should show vertex handles when a polygon is selected', () => {
+    selectMode.activate();
+    selectMode.onPointerDown(createPointerEvent(5, 5));
+
+    expect(callbacks.renderVertices).toHaveBeenCalledWith(
+      'f1',
+      expect.any(Array),
+      expect.any(Array),
+    );
+  });
+
+  it('should clear vertex handles on deselect', () => {
+    selectMode.activate();
+    selectMode.onPointerDown(createPointerEvent(5, 5));
+    selectMode.onPointerDown(createPointerEvent(50, 50)); // deselect
+
+    expect(callbacks.clearVertices).toHaveBeenCalled();
+  });
+
+  it('should clear vertex handles on deactivate', () => {
+    selectMode.activate();
+    selectMode.onPointerDown(createPointerEvent(5, 5));
+
+    selectMode.deactivate();
+
+    expect(callbacks.clearVertices).toHaveBeenCalled();
+  });
+
+  it('should refresh vertex handles when refreshVertexHandles is called', () => {
+    selectMode.activate();
+    selectMode.onPointerDown(createPointerEvent(5, 5));
+
+    vi.mocked(callbacks.renderVertices).mockClear();
+
+    // Simulate external geometry change (e.g. undo/redo)
+    selectMode.refreshVertexHandles();
+
+    expect(callbacks.renderVertices).toHaveBeenCalledWith(
+      'f1',
+      expect.any(Array),
+      expect.any(Array),
+    );
+  });
+
+  it('should clear selection when refreshVertexHandles finds feature removed', () => {
+    selectMode.activate();
+    selectMode.onPointerDown(createPointerEvent(5, 5));
+    expect(selectMode.getSelectedIds()).toContain('f1');
+
+    // Remove the feature (simulating undo of a create)
+    featureMap.delete('f1');
+
+    selectMode.refreshVertexHandles();
+
+    expect(selectMode.getSelectedIds()).toHaveLength(0);
+    expect(callbacks.clearVertices).toHaveBeenCalled();
+  });
+
+  // --- Vertex drag tests ---
+
+  describe('vertex drag', () => {
+    it('should start drag when clicking near a vertex', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select polygon
+
+      // Click near vertex (0,0) → screen point (0,0)
+      selectMode.onPointerDown(createPointerEvent(0, 0));
+
+      expect(callbacks.setDragPan).toHaveBeenCalledWith(false);
+    });
+
+    it('should update vertex position during drag', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      // Start drag on vertex (0,0)
+      selectMode.onPointerDown(createPointerEvent(0, 0));
+
+      // Move to new position
+      selectMode.onPointerMove(createPointerEvent(2, 2));
+
+      expect(callbacks.updateFeatureInStore).toHaveBeenCalled();
+      expect(callbacks.renderFeatures).toHaveBeenCalled();
+    });
+
+    it('should commit drag on pointer up with UpdateAction', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+      selectMode.onPointerDown(createPointerEvent(0, 0)); // start drag
+
+      selectMode.onPointerMove(createPointerEvent(2, 2)); // move
+      selectMode.onPointerUp(createPointerEvent(2, 2)); // release
+
+      expect(callbacks.pushToHistory).toHaveBeenCalled();
+      expect(callbacks.emitEvent).toHaveBeenCalledWith(
+        'update',
+        expect.objectContaining({
+          feature: expect.any(Object),
+          oldFeature: expect.any(Object),
+        }),
+      );
+      expect(callbacks.setDragPan).toHaveBeenCalledWith(true);
+    });
+
+    it('should not start drag when clicking far from vertices', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      vi.mocked(callbacks.setDragPan).mockClear();
+
+      // Click in the middle of the polygon, far from any vertex
+      selectMode.onPointerDown(createPointerEvent(5, 5));
+
+      // This should toggle deselection, not start a drag
+      expect(callbacks.setDragPan).not.toHaveBeenCalledWith(false);
+    });
+
+    it('should restore dragPan on drag end', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+      selectMode.onPointerDown(createPointerEvent(0, 0)); // start drag
+
+      selectMode.onPointerUp(createPointerEvent(0, 0)); // end drag
+
+      expect(callbacks.setDragPan).toHaveBeenCalledWith(true);
+    });
+  });
+
+  // --- Midpoint insertion tests ---
+
+  describe('midpoint insertion', () => {
+    it('should insert a new vertex when dragging from a midpoint', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      // Midpoint between (0,0) and (10,0) is (5,0)
+      selectMode.onPointerDown(createPointerEvent(5, 0));
+
+      // Should have inserted a vertex and started drag
+      expect(callbacks.updateFeatureInStore).toHaveBeenCalled();
+      expect(callbacks.setDragPan).toHaveBeenCalledWith(false);
+
+      // The updated feature should have 5 unique vertices (was 4)
+      const updatedFeature = vi.mocked(callbacks.updateFeatureInStore).mock
+        .calls[0][1] as LibreDrawFeature;
+      const ring = updatedFeature.geometry.coordinates[0];
+      // ring includes closing point, so 6 for 5 unique vertices
+      expect(ring.length).toBe(6);
+    });
+
+    it('should show vertex handles immediately on midpoint insertion', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      vi.mocked(callbacks.renderVertices).mockClear();
+
+      // Click midpoint between (0,0) and (10,0)
+      selectMode.onPointerDown(createPointerEvent(5, 0));
+
+      // Vertex handles should be rendered with the new vertex count
+      expect(callbacks.renderVertices).toHaveBeenCalledWith(
+        'f1',
+        expect.any(Array),
+        expect.any(Array),
+      );
+    });
+  });
+
+  // --- Vertex deletion tests ---
+
+  describe('vertex deletion', () => {
+    it('should delete a vertex on double-click', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      vi.mocked(callbacks.pushToHistory).mockClear();
+      vi.mocked(callbacks.emitEvent).mockClear();
+
+      // Double-click on vertex (0,0)
+      const dblEvt = createPointerEvent(0, 0);
+      vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
+      vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
+      selectMode.onDoubleClick(dblEvt);
+
+      // Vertex should be removed
+      const updatedFeature = featureMap.get('f1')!;
+      const ring = updatedFeature.geometry.coordinates[0];
+      // Was 4 unique vertices, now 3 + closing = 4
+      expect(ring.length).toBe(4);
+
+      expect(callbacks.pushToHistory).toHaveBeenCalled();
+      expect(callbacks.emitEvent).toHaveBeenCalledWith(
+        'update',
+        expect.any(Object),
+      );
+    });
+
+    it('should not delete vertex when polygon has only 3 vertices', () => {
+      featureMap.clear();
+      featureMap.set('t1', makeTriangle('t1'));
+
+      const triCallbacks = createCallbacks(featureMap);
+      const triSelect = new SelectMode(triCallbacks);
+      triSelect.activate();
+      triSelect.onPointerDown(createPointerEvent(5, 3)); // select triangle
+
+      vi.mocked(triCallbacks.updateFeatureInStore).mockClear();
+
+      // Double-click on vertex (0,0)
+      const dblEvt = createPointerEvent(0, 0);
+      vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
+      vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
+      triSelect.onDoubleClick(dblEvt);
+
+      // Should NOT have updated the feature
+      expect(triCallbacks.updateFeatureInStore).not.toHaveBeenCalled();
+    });
+
+    it('should push UpdateAction when deleting a vertex', () => {
+      selectMode.activate();
+      selectMode.onPointerDown(createPointerEvent(5, 5)); // select
+
+      vi.mocked(callbacks.pushToHistory).mockClear();
+
+      const dblEvt = createPointerEvent(0, 0);
+      vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
+      vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
+      selectMode.onDoubleClick(dblEvt);
+
+      expect(callbacks.pushToHistory).toHaveBeenCalledOnce();
+    });
   });
 });

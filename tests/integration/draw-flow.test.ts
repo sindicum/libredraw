@@ -48,6 +48,14 @@ describe('Draw Flow Integration', () => {
         renderFeatures: vi.fn(),
         getFeatureById: (id) => store.getById(id),
         getAllFeatures: () => store.getAll(),
+        getScreenPoint: (lngLat) => ({
+          x: lngLat.lng * 10,
+          y: lngLat.lat * 10,
+        }),
+        updateFeatureInStore: (id, feature) => store.update(id, feature),
+        renderVertices: vi.fn(),
+        clearVertices: vi.fn(),
+        setDragPan: vi.fn(),
       },
       vi.fn(),
     );
