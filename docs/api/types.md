@@ -5,6 +5,7 @@ All types are exported as TypeScript type-only exports from `@sindicum/libre-dra
 ```ts
 import type {
   LibreDrawFeature,
+  FeatureCollection,
   PolygonGeometry,
   Position,
   FeatureProperties,
@@ -91,6 +92,24 @@ interface LibreDrawFeature {
 
 ---
 
+### `FeatureCollection`
+
+A GeoJSON FeatureCollection containing LibreDraw polygons. Returned by [`toGeoJSON()`](/api/libre-draw#togeojson).
+
+```ts
+interface FeatureCollection {
+  type: 'FeatureCollection';
+  features: LibreDrawFeature[];
+}
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | `'FeatureCollection'` | Always `'FeatureCollection'` |
+| `features` | [`LibreDrawFeature[]`](#libredrawfeature) | Array of polygon features |
+
+---
+
 ## Configuration Types
 
 ### `LibreDrawOptions`
@@ -124,7 +143,7 @@ interface ToolbarOptions {
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `position` | [`ToolbarPosition`](#toolbarposition) | `'top-left'` | Where to place the toolbar on the map |
+| `position` | [`ToolbarPosition`](#toolbarposition) | `'top-right'` | Where to place the toolbar on the map |
 | `controls` | [`ToolbarControls`](#toolbarcontrols) | All `true` | Which buttons to display |
 
 ---

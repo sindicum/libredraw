@@ -29,6 +29,8 @@ const draw = new LibreDraw(map);
 
 That's it! A toolbar with draw, select, delete, undo, and redo buttons appears on the map. Click the draw button to start creating polygons.
 
+> **Note:** LibreDraw does not require a separate CSS import. All styles (toolbar, map layers) are applied programmatically via JavaScript. Only `maplibre-gl.css` is needed for the base map.
+
 ### Try it
 
 <BasicDemo />
@@ -94,13 +96,16 @@ draw.on('modechange', (e) => {
 ### Export
 
 ```ts
+// Recommended — returns a GeoJSON FeatureCollection directly
+const geojson = draw.toGeoJSON();
+// { type: 'FeatureCollection', features: [...] }
+```
+
+If you need individual features as an array:
+
+```ts
 const features = draw.getFeatures();
 // Returns: LibreDrawFeature[]
-
-const geojson = {
-  type: 'FeatureCollection',
-  features: features,
-};
 ```
 
 ### Import

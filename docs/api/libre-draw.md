@@ -123,6 +123,33 @@ console.log(`${features.length} polygons on the map`);
 
 ---
 
+### `toGeoJSON()`
+
+Export all features as a GeoJSON FeatureCollection.
+
+Returns a standard GeoJSON FeatureCollection containing all polygon features currently in the store, suitable for serialization or integration with other GeoJSON-compatible tools.
+
+**Returns:** [`FeatureCollection`](/api/types#featurecollection)
+
+**Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
+
+**Example:**
+
+```ts
+const geojson = draw.toGeoJSON();
+console.log(JSON.stringify(geojson));
+// { "type": "FeatureCollection", "features": [...] }
+
+// Save to server
+fetch('/api/polygons', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(geojson),
+});
+```
+
+---
+
 ### `setFeatures(geojson)`
 
 Replace all features in the store with the given GeoJSON FeatureCollection.
