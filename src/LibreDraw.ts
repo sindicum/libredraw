@@ -11,7 +11,7 @@ import { EventBus } from './core/EventBus';
 import { FeatureStore } from './core/FeatureStore';
 import { HistoryManager } from './core/HistoryManager';
 import { ModeManager } from './core/ModeManager';
-import type { ModeName } from './core/ModeManager';
+import type { ModeName } from './types/mode';
 import { LibreDrawError } from './core/errors';
 import { validateGeoJSON, validateFeature } from './validation/geojson';
 import { IdleMode } from './modes/IdleMode';

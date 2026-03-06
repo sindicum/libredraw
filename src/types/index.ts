@@ -9,6 +9,8 @@ export type {
   FeatureStoreInterface,
 } from './features';
 
+export type { ModeName } from './mode';
+
 export {
   CreateAction,
   UpdateAction,

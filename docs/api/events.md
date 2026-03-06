@@ -19,6 +19,7 @@ interface LibreDrawEventMap {
 ## `create`
 
 Emitted when a new polygon is created (user completes drawing with double-click/double-tap).
+The active mode remains `draw` after creation, so users can continue drawing.
 
 ### Payload: `CreateEvent`
 
@@ -146,15 +147,15 @@ Emitted when the active mode changes.
 
 ```ts
 interface ModeChangeEvent {
-  mode: string;
-  previousMode: string;
+  mode: ModeName;
+  previousMode: ModeName;
 }
 ```
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `mode` | `string` | The new active mode (`'idle'`, `'draw'`, or `'select'`) |
-| `previousMode` | `string` | The previous mode |
+| `mode` | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw'`, or `'select'`) |
+| `previousMode` | [`ModeName`](/api/types#modename) | The previous mode |
 
 ### Example
 

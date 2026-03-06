@@ -1,4 +1,5 @@
 import type { LibreDrawFeature } from './features';
+import type { ModeName } from './mode';
 
 /**
  * Event payload for feature creation.
@@ -33,8 +34,8 @@ export interface SelectionChangeEvent {
  * Event payload for mode changes.
  */
 export interface ModeChangeEvent {
-  mode: string;
-  previousMode: string;
+  mode: ModeName;
+  previousMode: ModeName;
 }
 
 /**

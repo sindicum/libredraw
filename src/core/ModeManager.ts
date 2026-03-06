@@ -1,9 +1,6 @@
 import type { Mode } from '../modes/Mode';
-
-/**
- * The available drawing modes.
- */
-export type ModeName = 'idle' | 'draw' | 'select';
+import type { ModeName } from '../types/mode';
+export type { ModeName } from '../types/mode';
 
 /**
  * Manages the active drawing mode and handles transitions between modes.

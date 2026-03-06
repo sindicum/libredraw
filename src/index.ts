@@ -34,7 +34,7 @@ export type {
 } from './types';
 
 // Mode name type
-export type { ModeName } from './core/ModeManager';
+export type { ModeName } from './types';
 
 // Error class
 export { LibreDrawError } from './core/errors';
