@@ -9,6 +9,14 @@ import type { LibreDrawEventMap } from '../types/events';
 import { DeleteAction, UpdateAction } from '../types/features';
 import { FeatureStore } from '../core/FeatureStore';
 import { cloneFeature } from '../utils/featureSnapshot';
+import {
+  computeMidpoints,
+  getVertices,
+  insertVertex,
+  movePolygon,
+  moveVertex,
+  removeVertex,
+} from '../utils/geometry';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { point as turfPoint } from '@turf/helpers';
 import { hasRingSelfIntersection } from '../validation/intersection';
@@ -166,7 +174,7 @@ export class SelectMode implements Mode {
     if (selectedId) {
       const feature = this.callbacks.getFeatureById(selectedId);
       if (feature) {
-        const vertices = this.getVertices(feature);
+        const vertices = getVertices(feature);
         const threshold = this.getThreshold(event);
 
         // Check vertex hit
@@ -181,13 +189,13 @@ export class SelectMode implements Mode {
         }
 
         // Check midpoint hit
-        const midpoints = this.computeMidpoints(vertices);
+        const midpoints = computeMidpoints(vertices);
         const midIdx = this.findNearestPoint(midpoints, event.point, threshold);
         if (midIdx >= 0) {
           // Capture state BEFORE insertion for correct undo
           const beforeInsert = FeatureStore.cloneFeature(feature);
           // Insert new vertex at the midpoint position
-          const newFeature = this.insertVertex(feature, midIdx + 1, midpoints[midIdx]);
+          const newFeature = insertVertex(feature, midIdx + 1, midpoints[midIdx]);
           this.callbacks.updateFeatureInStore(selectedId, newFeature);
           this.showVertexHandles(newFeature);
           this.startDrag(newFeature, midIdx + 1);
@@ -252,7 +260,7 @@ export class SelectMode implements Mode {
       if (!feature) return;
 
       const newPos: Position = [event.lngLat.lng, event.lngLat.lat];
-      const updatedFeature = this.moveVertex(feature, this.dragVertexIndex, newPos);
+      const updatedFeature = moveVertex(feature, this.dragVertexIndex, newPos);
 
       // Reject move if it would cause self-intersection
       if (hasRingSelfIntersection(updatedFeature.geometry.coordinates[0])) {
@@ -272,7 +280,7 @@ export class SelectMode implements Mode {
 
       const dLng = event.lngLat.lng - this.dragPolygonStartLngLat.lng;
       const dLat = event.lngLat.lat - this.dragPolygonStartLngLat.lat;
-      const updatedFeature = this.movePolygon(this.dragStartFeature, dLng, dLat);
+      const updatedFeature = movePolygon(this.dragStartFeature, dLng, dLat);
 
       this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
       this.callbacks.renderFeatures();
@@ -287,7 +295,7 @@ export class SelectMode implements Mode {
     const feature = this.callbacks.getFeatureById(selectedId);
     if (!feature) return;
 
-    const vertices = this.getVertices(feature);
+    const vertices = getVertices(feature);
     const threshold = this.getThreshold(event);
     const nearIdx = this.findNearestVertex(vertices, event.point, threshold);
 
@@ -365,14 +373,14 @@ export class SelectMode implements Mode {
     const feature = this.callbacks.getFeatureById(selectedId);
     if (!feature) return;
 
-    const vertices = this.getVertices(feature);
+    const vertices = getVertices(feature);
     const threshold = this.getThreshold(event);
     const vertexIdx = this.findNearestVertex(vertices, event.point, threshold);
 
     // Delete vertex if hit and polygon has more than MIN_VERTICES
     if (vertexIdx >= 0 && vertices.length > MIN_VERTICES) {
       const oldFeature = FeatureStore.cloneFeature(feature);
-      const updatedFeature = this.removeVertex(feature, vertexIdx);
+      const updatedFeature = removeVertex(feature, vertexIdx);
       this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
 
       const action = new UpdateAction(selectedId, oldFeature, FeatureStore.cloneFeature(updatedFeature));
@@ -402,12 +410,12 @@ export class SelectMode implements Mode {
     if (!feature) return;
 
     // Check if long press is on a vertex — delete it
-    const vertices = this.getVertices(feature);
+    const vertices = getVertices(feature);
     const threshold = this.getThreshold(event);
     const vertexIdx = this.findNearestVertex(vertices, event.point, threshold);
     if (vertexIdx >= 0 && vertices.length > MIN_VERTICES) {
       const oldFeature = FeatureStore.cloneFeature(feature);
-      const updatedFeature = this.removeVertex(feature, vertexIdx);
+      const updatedFeature = removeVertex(feature, vertexIdx);
       this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
 
       const action = new UpdateAction(selectedId, oldFeature, FeatureStore.cloneFeature(updatedFeature));
@@ -437,15 +445,6 @@ export class SelectMode implements Mode {
     return event.inputType === 'touch'
       ? HIT_THRESHOLD_TOUCH_PX
       : HIT_THRESHOLD_MOUSE_PX;
-  }
-
-  /**
-   * Get the unique vertices (excluding closing point) of a polygon.
-   */
-  private getVertices(feature: LibreDrawFeature): Position[] {
-    const ring = feature.geometry.coordinates[0];
-    // Exclude the closing point (last == first)
-    return ring.slice(0, ring.length - 1);
   }
 
   /**
@@ -490,21 +489,6 @@ export class SelectMode implements Mode {
   }
 
   /**
-   * Compute midpoints for each edge of the polygon.
-   */
-  private computeMidpoints(vertices: Position[]): Position[] {
-    const midpoints: Position[] = [];
-    for (let i = 0; i < vertices.length; i++) {
-      const next = (i + 1) % vertices.length;
-      midpoints.push([
-        (vertices[i][0] + vertices[next][0]) / 2,
-        (vertices[i][1] + vertices[next][1]) / 2,
-      ]);
-    }
-    return midpoints;
-  }
-
-  /**
    * Start a vertex drag operation.
    */
   private startDrag(feature: LibreDrawFeature, vertexIndex: number): void {
@@ -543,92 +527,6 @@ export class SelectMode implements Mode {
   }
 
   /**
-   * Create a new feature with a vertex moved to a new position.
-   */
-  private moveVertex(
-    feature: LibreDrawFeature,
-    vertexIndex: number,
-    newPos: Position,
-  ): LibreDrawFeature {
-    const ring = [...feature.geometry.coordinates[0]];
-    ring[vertexIndex] = newPos;
-    // If moving first vertex, also update closing point
-    if (vertexIndex === 0) {
-      ring[ring.length - 1] = newPos;
-    }
-    // If moving last vertex (same as first), also update first
-    if (vertexIndex === ring.length - 1) {
-      ring[0] = newPos;
-    }
-    return {
-      ...feature,
-      geometry: {
-        type: 'Polygon',
-        coordinates: [ring],
-      },
-    };
-  }
-
-  /**
-   * Create a new feature with all vertices translated by the given delta.
-   */
-  private movePolygon(
-    feature: LibreDrawFeature,
-    dLng: number,
-    dLat: number,
-  ): LibreDrawFeature {
-    const ring = feature.geometry.coordinates[0].map(
-      (pos): Position => [pos[0] + dLng, pos[1] + dLat],
-    );
-    return {
-      ...feature,
-      geometry: {
-        type: 'Polygon',
-        coordinates: [ring],
-      },
-    };
-  }
-
-  /**
-   * Create a new feature with a vertex inserted at the given index.
-   */
-  private insertVertex(
-    feature: LibreDrawFeature,
-    insertIndex: number,
-    pos: Position,
-  ): LibreDrawFeature {
-    const ring = [...feature.geometry.coordinates[0]];
-    ring.splice(insertIndex, 0, pos);
-    return {
-      ...feature,
-      geometry: {
-        type: 'Polygon',
-        coordinates: [ring],
-      },
-    };
-  }
-
-  /**
-   * Create a new feature with a vertex removed at the given index.
-   */
-  private removeVertex(
-    feature: LibreDrawFeature,
-    vertexIndex: number,
-  ): LibreDrawFeature {
-    const vertices = this.getVertices(feature);
-    const newVertices = vertices.filter((_, i) => i !== vertexIndex);
-    // Close the ring
-    const ring: Position[] = [...newVertices, [...newVertices[0]] as Position];
-    return {
-      ...feature,
-      geometry: {
-        type: 'Polygon',
-        coordinates: [ring],
-      },
-    };
-  }
-
-  /**
    * Refresh vertex/midpoint handles for the currently selected feature.
    * Call this after external geometry changes (e.g. undo/redo).
    */
@@ -653,8 +551,8 @@ export class SelectMode implements Mode {
    * Show vertex and midpoint handles for a selected feature.
    */
   private showVertexHandles(feature: LibreDrawFeature): void {
-    const vertices = this.getVertices(feature);
-    const midpoints = this.computeMidpoints(vertices);
+    const vertices = getVertices(feature);
+    const midpoints = computeMidpoints(vertices);
     this.callbacks.renderVertices(
       feature.id,
       vertices,
