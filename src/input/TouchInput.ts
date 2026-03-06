@@ -44,33 +44,46 @@ export class TouchInput {
   private longPressTimer: ReturnType<typeof setTimeout> | null = null;
   private touchStartPos: { x: number; y: number } | null = null;
   private isPinching = false;
+  private longPressFired = false;
 
   private handleTouchStart = (e: TouchEvent): void => {
     // Ignore multi-finger gestures (pinch/rotate)
     if (e.touches.length >= 2) {
+      const normalized = this.normalize(e);
       this.isPinching = true;
       this.cancelLongPress();
+      this.endPointerIfActive(normalized);
+      this.longPressFired = false;
       return;
     }
 
     this.isPinching = false;
     const normalized = this.normalize(e);
     this.touchStartPos = { x: normalized.point.x, y: normalized.point.y };
+    this.longPressFired = false;
 
     // Start long press timer
     this.cancelLongPress();
     this.longPressTimer = setTimeout(() => {
-      if (this.touchStartPos) {
-        this.callbacks.onLongPress(normalized);
-        this.touchStartPos = null; // prevent pointerUp from firing
-      }
+      if (!this.touchStartPos || this.isPinching) return;
+      this.endPointerIfActive(normalized);
+      this.longPressFired = true;
+      this.callbacks.onLongPress(normalized);
     }, LONG_PRESS_MS);
 
     this.callbacks.onPointerDown(normalized);
   };
 
   private handleTouchMove = (e: TouchEvent): void => {
-    if (this.isPinching || e.touches.length >= 2) {
+    if (e.touches.length >= 2) {
+      const normalized = this.normalize(e);
+      this.isPinching = true;
+      this.endPointerIfActive(normalized);
+      this.cancelLongPress();
+      return;
+    }
+
+    if (this.isPinching) {
       this.cancelLongPress();
       return;
     }
@@ -92,17 +105,25 @@ export class TouchInput {
   private handleTouchEnd = (e: TouchEvent): void => {
     this.cancelLongPress();
 
-    if (this.isPinching) {
-      if (e.touches.length === 0) {
-        this.isPinching = false;
-      }
-      return;
-    }
-
     // We need to use changedTouches for touch end
     if (e.changedTouches.length === 0) return;
 
     const normalized = this.normalizeChangedTouch(e);
+    this.endPointerIfActive(normalized);
+
+    if (this.isPinching) {
+      if (e.touches.length === 0) {
+        this.isPinching = false;
+      }
+      this.longPressFired = false;
+      return;
+    }
+
+    if (this.longPressFired) {
+      this.longPressFired = false;
+      this.lastTapTime = 0;
+      return;
+    }
 
     // Double-tap detection
     const now = Date.now();
@@ -112,11 +133,19 @@ export class TouchInput {
     } else {
       this.lastTapTime = now;
     }
+  };
 
-    if (this.touchStartPos) {
-      this.callbacks.onPointerUp(normalized);
-      this.touchStartPos = null;
+  private handleTouchCancel = (e: TouchEvent): void => {
+    this.cancelLongPress();
+
+    if (e.changedTouches.length > 0) {
+      this.endPointerIfActive(this.normalizeChangedTouch(e));
     }
+
+    this.touchStartPos = null;
+    this.isPinching = false;
+    this.longPressFired = false;
+    this.lastTapTime = 0;
   };
 
   constructor(map: MaplibreMap, callbacks: TouchInputCallbacks) {
@@ -136,6 +165,7 @@ export class TouchInput {
       passive: false,
     });
     this.canvas.addEventListener('touchend', this.handleTouchEnd);
+    this.canvas.addEventListener('touchcancel', this.handleTouchCancel);
   }
 
   /**
@@ -145,7 +175,12 @@ export class TouchInput {
     this.canvas.removeEventListener('touchstart', this.handleTouchStart);
     this.canvas.removeEventListener('touchmove', this.handleTouchMove);
     this.canvas.removeEventListener('touchend', this.handleTouchEnd);
+    this.canvas.removeEventListener('touchcancel', this.handleTouchCancel);
     this.cancelLongPress();
+    this.touchStartPos = null;
+    this.isPinching = false;
+    this.longPressFired = false;
+    this.lastTapTime = 0;
   }
 
   /**
@@ -163,6 +198,15 @@ export class TouchInput {
       clearTimeout(this.longPressTimer);
       this.longPressTimer = null;
     }
+  }
+
+  /**
+   * End the current pointer interaction if active.
+   */
+  private endPointerIfActive(event: NormalizedInputEvent): void {
+    if (!this.touchStartPos) return;
+    this.callbacks.onPointerUp(event);
+    this.touchStartPos = null;
   }
 
   /**

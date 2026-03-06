@@ -307,7 +307,10 @@ export class SelectMode implements Mode {
     }
 
     const currentFeature = this.callbacks.getFeatureById(selectedId);
-    if (currentFeature) {
+    if (
+      currentFeature &&
+      this.hasGeometryChanged(this.dragStartFeature, currentFeature)
+    ) {
       const action = new UpdateAction(
         selectedId,
         this.dragStartFeature,
@@ -321,6 +324,36 @@ export class SelectMode implements Mode {
     }
 
     this.endDrag();
+  }
+
+  /**
+   * Compare polygon coordinates and report whether geometry has changed.
+   */
+  private hasGeometryChanged(
+    before: LibreDrawFeature,
+    after: LibreDrawFeature,
+  ): boolean {
+    const beforeCoords = before.geometry.coordinates;
+    const afterCoords = after.geometry.coordinates;
+
+    if (beforeCoords.length !== afterCoords.length) return true;
+
+    for (let ringIndex = 0; ringIndex < beforeCoords.length; ringIndex++) {
+      const beforeRing = beforeCoords[ringIndex];
+      const afterRing = afterCoords[ringIndex];
+      if (beforeRing.length !== afterRing.length) return true;
+
+      for (let positionIndex = 0; positionIndex < beforeRing.length; positionIndex++) {
+        if (
+          beforeRing[positionIndex][0] !== afterRing[positionIndex][0] ||
+          beforeRing[positionIndex][1] !== afterRing[positionIndex][1]
+        ) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   onDoubleClick(event: NormalizedInputEvent): void {

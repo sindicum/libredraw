@@ -19,16 +19,26 @@ export class MouseInput {
   private map: MaplibreMap;
   private callbacks: MouseInputCallbacks;
   private canvas: HTMLElement;
+  private isPointerDown = false;
 
   private handleMouseDown = (e: MouseEvent): void => {
+    this.isPointerDown = true;
     this.callbacks.onPointerDown(this.normalize(e));
   };
 
-  private handleMouseMove = (e: MouseEvent): void => {
+  private handleMouseMoveCanvas = (e: MouseEvent): void => {
+    if (this.isPointerDown) return;
     this.callbacks.onPointerMove(this.normalize(e));
   };
 
-  private handleMouseUp = (e: MouseEvent): void => {
+  private handleMouseMoveWindow = (e: MouseEvent): void => {
+    if (!this.isPointerDown) return;
+    this.callbacks.onPointerMove(this.normalize(e));
+  };
+
+  private handleMouseUpWindow = (e: MouseEvent): void => {
+    if (!this.isPointerDown) return;
+    this.isPointerDown = false;
     this.callbacks.onPointerUp(this.normalize(e));
   };
 
@@ -47,8 +57,9 @@ export class MouseInput {
    */
   enable(): void {
     this.canvas.addEventListener('mousedown', this.handleMouseDown);
-    this.canvas.addEventListener('mousemove', this.handleMouseMove);
-    this.canvas.addEventListener('mouseup', this.handleMouseUp);
+    this.canvas.addEventListener('mousemove', this.handleMouseMoveCanvas);
+    window.addEventListener('mousemove', this.handleMouseMoveWindow);
+    window.addEventListener('mouseup', this.handleMouseUpWindow);
     this.canvas.addEventListener('dblclick', this.handleDblClick);
   }
 
@@ -57,9 +68,11 @@ export class MouseInput {
    */
   disable(): void {
     this.canvas.removeEventListener('mousedown', this.handleMouseDown);
-    this.canvas.removeEventListener('mousemove', this.handleMouseMove);
-    this.canvas.removeEventListener('mouseup', this.handleMouseUp);
+    this.canvas.removeEventListener('mousemove', this.handleMouseMoveCanvas);
+    window.removeEventListener('mousemove', this.handleMouseMoveWindow);
+    window.removeEventListener('mouseup', this.handleMouseUpWindow);
     this.canvas.removeEventListener('dblclick', this.handleDblClick);
+    this.isPointerDown = false;
   }
 
   /**
