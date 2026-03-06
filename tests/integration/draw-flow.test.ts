@@ -7,6 +7,11 @@ import { IdleMode } from '../../src/modes/IdleMode';
 import { DrawMode } from '../../src/modes/DrawMode';
 import { SelectMode } from '../../src/modes/SelectMode';
 import type { NormalizedInputEvent } from '../../src/types/input';
+import type {
+  CreateEvent,
+  DeleteEvent,
+  UpdateEvent,
+} from '../../src/types/events';
 
 function createPointerEvent(
   lng: number,
@@ -116,6 +121,73 @@ describe('Draw Flow Integration', () => {
 
     expect(store.getAll()).toHaveLength(0);
     expect(deleteListener).toHaveBeenCalledOnce();
+  });
+
+  it('should isolate create/update/delete payload mutations from internal state', () => {
+    const { eventBus, store, history, modeManager } = createDrawingSystem();
+
+    let createPayload: CreateEvent | undefined;
+    let updatePayload: UpdateEvent | undefined;
+    let deletePayload: DeleteEvent | undefined;
+
+    eventBus.on('create', (payload) => {
+      createPayload = payload;
+    });
+    eventBus.on('update', (payload) => {
+      updatePayload = payload;
+    });
+    eventBus.on('delete', (payload) => {
+      deletePayload = payload;
+    });
+
+    // Draw
+    modeManager.setMode('draw');
+    const drawMode = modeManager.getCurrentMode()!;
+    drawMode.onPointerDown(createPointerEvent(0, 0));
+    drawMode.onPointerDown(createPointerEvent(10, 0));
+    drawMode.onPointerDown(createPointerEvent(10, 10));
+    drawMode.onPointerDown(createPointerEvent(5, 5));
+
+    const dblEvt = createPointerEvent(5, 5);
+    vi.spyOn(dblEvt.originalEvent, 'preventDefault').mockImplementation(() => {});
+    vi.spyOn(dblEvt.originalEvent, 'stopPropagation').mockImplementation(() => {});
+    drawMode.onDoubleClick(dblEvt);
+
+    const featureId = store.getAll()[0].id;
+    expect(createPayload).toBeDefined();
+
+    createPayload!.feature.geometry.coordinates[0][0][0] = 999;
+    createPayload!.feature.properties.mutated = true;
+
+    expect(store.getById(featureId)!.geometry.coordinates[0][0][0]).toBe(0);
+    expect(store.getById(featureId)!.properties.mutated).toBeUndefined();
+
+    // Update (vertex drag)
+    modeManager.setMode('select');
+    const selectMode = modeManager.getCurrentMode()!;
+    selectMode.onPointerDown(createPointerEvent(5, 3)); // select polygon
+    selectMode.onPointerDown(createPointerEvent(0, 0)); // start vertex drag
+    selectMode.onPointerMove(createPointerEvent(2, 2));
+    selectMode.onPointerUp(createPointerEvent(2, 2));
+
+    expect(updatePayload).toBeDefined();
+    updatePayload!.feature.geometry.coordinates[0][0][0] = 777;
+    updatePayload!.oldFeature.geometry.coordinates[0][0][0] = 888;
+
+    expect(store.getById(featureId)!.geometry.coordinates[0][0][0]).toBe(2);
+
+    // Delete
+    selectMode.onKeyDown(
+      'Delete',
+      new KeyboardEvent('keydown', { key: 'Delete' }),
+    );
+    expect(deletePayload).toBeDefined();
+
+    deletePayload!.feature.geometry.coordinates[0][0][0] = 555;
+
+    // Undo should restore the non-tampered snapshot
+    history.undo(store);
+    expect(store.getById(featureId)!.geometry.coordinates[0][0][0]).toBe(2);
   });
 
   it('should undo the creation after drawing', () => {

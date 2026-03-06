@@ -31,6 +31,19 @@ describe('FeatureStore', () => {
     expect(store.getById('f1')).toEqual(stored);
   });
 
+  it('should snapshot input on add', () => {
+    const store = new FeatureStore();
+    const input = makeFeature('f1');
+
+    store.add(input);
+    input.geometry.coordinates[0][0][0] = 999;
+    input.properties.name = 'tampered';
+
+    const stored = store.getById('f1')!;
+    expect(stored.geometry.coordinates[0][0][0]).toBe(0);
+    expect(stored.properties.name).toBeUndefined();
+  });
+
   it('should generate an id if the feature has an empty id', () => {
     const store = new FeatureStore();
     const feature = makeFeature('');
@@ -65,6 +78,25 @@ describe('FeatureStore', () => {
 
     const result = store.getById('f1');
     expect(result!.geometry.coordinates[0][0]).toEqual([1, 1]);
+  });
+
+  it('should snapshot input on update', () => {
+    const store = new FeatureStore();
+    store.add(makeFeature('f1'));
+
+    const updated = makeFeature('f1', [
+      [
+        [1, 1],
+        [2, 2],
+        [3, 3],
+        [1, 1],
+      ],
+    ]);
+
+    store.update('f1', updated);
+    updated.geometry.coordinates[0][0][0] = 999;
+
+    expect(store.getById('f1')!.geometry.coordinates[0][0][0]).toBe(1);
   });
 
   it('should not update a non-existent feature', () => {
@@ -111,6 +143,16 @@ describe('FeatureStore', () => {
     expect(store.getById('f2')).toBeDefined();
   });
 
+  it('should snapshot input on setAll', () => {
+    const store = new FeatureStore();
+    const input = [makeFeature('f1'), makeFeature('f2')];
+
+    store.setAll(input);
+    input[0].geometry.coordinates[0][0][0] = 999;
+
+    expect(store.getById('f1')!.geometry.coordinates[0][0][0]).toBe(0);
+  });
+
   it('should export as GeoJSON FeatureCollection', () => {
     const store = new FeatureStore();
     store.add(makeFeature('f1'));
@@ -119,6 +161,36 @@ describe('FeatureStore', () => {
     const geojson = store.toGeoJSON();
     expect(geojson.type).toBe('FeatureCollection');
     expect(geojson.features).toHaveLength(2);
+  });
+
+  it('should return snapshots from getById', () => {
+    const store = new FeatureStore();
+    store.add(makeFeature('f1'));
+
+    const feature = store.getById('f1')!;
+    feature.geometry.coordinates[0][0][0] = 999;
+
+    expect(store.getById('f1')!.geometry.coordinates[0][0][0]).toBe(0);
+  });
+
+  it('should return snapshots from getAll', () => {
+    const store = new FeatureStore();
+    store.add(makeFeature('f1'));
+
+    const all = store.getAll();
+    all[0].geometry.coordinates[0][0][0] = 999;
+
+    expect(store.getById('f1')!.geometry.coordinates[0][0][0]).toBe(0);
+  });
+
+  it('should return snapshots from toGeoJSON', () => {
+    const store = new FeatureStore();
+    store.add(makeFeature('f1'));
+
+    const geojson = store.toGeoJSON();
+    geojson.features[0].geometry.coordinates[0][0][0] = 999;
+
+    expect(store.getById('f1')!.geometry.coordinates[0][0][0]).toBe(0);
   });
 
   it('should deep clone a feature', () => {

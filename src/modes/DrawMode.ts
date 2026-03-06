@@ -11,6 +11,7 @@ import {
   wouldNewVertexCauseIntersection,
   wouldClosingCauseIntersection,
 } from '../validation/intersection';
+import { cloneFeature } from '../utils/featureSnapshot';
 
 /**
  * Threshold in pixels: if a click is within this distance of the first
@@ -211,7 +212,7 @@ export class DrawMode implements Mode {
     const stored = this.callbacks.addFeatureToStore(feature);
     const action = new CreateAction(stored);
     this.callbacks.pushToHistory(action);
-    this.callbacks.emitEvent('create', { feature: stored });
+    this.callbacks.emitEvent('create', { feature: cloneFeature(stored) });
     this.callbacks.renderFeatures();
 
     // Reset state for next drawing

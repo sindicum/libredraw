@@ -1,9 +1,12 @@
 import type {
   LibreDrawFeature,
-  Position,
   FeatureStoreInterface,
   FeatureCollection,
 } from '../types/features';
+import {
+  cloneFeature,
+  cloneFeatureCollection,
+} from '../utils/featureSnapshot';
 
 /**
  * Internal store for managing LibreDraw features.
@@ -23,9 +26,9 @@ export class FeatureStore implements FeatureStoreInterface {
    */
   add(feature: LibreDrawFeature): LibreDrawFeature {
     const id = feature.id || crypto.randomUUID();
-    const stored: LibreDrawFeature = { ...feature, id };
+    const stored = cloneFeature({ ...feature, id });
     this.features.set(id, stored);
-    return stored;
+    return cloneFeature(stored);
   }
 
   /**
@@ -37,7 +40,7 @@ export class FeatureStore implements FeatureStoreInterface {
     if (!this.features.has(id)) {
       return;
     }
-    this.features.set(id, { ...feature, id });
+    this.features.set(id, cloneFeature({ ...feature, id }));
   }
 
   /**
@@ -49,8 +52,9 @@ export class FeatureStore implements FeatureStoreInterface {
     const feature = this.features.get(id);
     if (feature) {
       this.features.delete(id);
+      return cloneFeature(feature);
     }
-    return feature;
+    return undefined;
   }
 
   /**
@@ -58,7 +62,9 @@ export class FeatureStore implements FeatureStoreInterface {
    * @returns An array of all features.
    */
   getAll(): LibreDrawFeature[] {
-    return Array.from(this.features.values());
+    return Array.from(this.features.values(), (feature) =>
+      cloneFeature(feature),
+    );
   }
 
   /**
@@ -67,7 +73,8 @@ export class FeatureStore implements FeatureStoreInterface {
    * @returns The feature, or undefined if not found.
    */
   getById(id: string): LibreDrawFeature | undefined {
-    return this.features.get(id);
+    const feature = this.features.get(id);
+    return feature ? cloneFeature(feature) : undefined;
   }
 
   /**
@@ -85,7 +92,7 @@ export class FeatureStore implements FeatureStoreInterface {
     this.features.clear();
     for (const feature of features) {
       const id = feature.id || crypto.randomUUID();
-      this.features.set(id, { ...feature, id });
+      this.features.set(id, cloneFeature({ ...feature, id }));
     }
   }
 
@@ -94,10 +101,10 @@ export class FeatureStore implements FeatureStoreInterface {
    * @returns A GeoJSON FeatureCollection.
    */
   toGeoJSON(): FeatureCollection {
-    return {
+    return cloneFeatureCollection({
       type: 'FeatureCollection',
-      features: this.getAll(),
-    };
+      features: Array.from(this.features.values()),
+    });
   }
 
   /**
@@ -106,16 +113,6 @@ export class FeatureStore implements FeatureStoreInterface {
    * @returns A deep-cloned feature.
    */
   static cloneFeature(feature: LibreDrawFeature): LibreDrawFeature {
-    return {
-      id: feature.id,
-      type: 'Feature',
-      geometry: {
-        type: 'Polygon',
-        coordinates: feature.geometry.coordinates.map(
-          (ring) => ring.map((pos) => [...pos] as Position),
-        ),
-      },
-      properties: { ...feature.properties },
-    };
+    return cloneFeature(feature);
   }
 }

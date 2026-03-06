@@ -29,11 +29,13 @@ coverage/
 playwright-report/
 test-results/
 
-# Claude Code SDD template infrastructure
+# AI Agent infrastructure
 .claude
+.agents
 .devcontainer
 .steering
 claude-docs
 CLAUDE.md
+AGENTS.md
 MEMO.md
 prompt.md

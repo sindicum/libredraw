@@ -1,6 +1,7 @@
 import type { LibreDrawFeature, Position } from '../types/features';
 import { LibreDrawError } from '../core/errors';
 import { hasRingSelfIntersection } from './intersection';
+import { deepCloneValue } from '../utils/featureSnapshot';
 
 /**
  * A GeoJSON FeatureCollection type for validation purposes.
@@ -137,7 +138,27 @@ export function validateFeature(feature: unknown): LibreDrawFeature {
     validateRing(ring);
   }
 
-  return feature as LibreDrawFeature;
+  const id = typeof f.id === 'string' ? f.id : '';
+  const propertiesRaw = f.properties;
+  const properties =
+    propertiesRaw !== null &&
+    propertiesRaw !== undefined &&
+    typeof propertiesRaw === 'object' &&
+    !Array.isArray(propertiesRaw)
+      ? deepCloneValue(propertiesRaw as Record<string, unknown>)
+      : {};
+
+  return {
+    id,
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: coordinates.map((ring) =>
+        ring.map((position) => [position[0], position[1]] as Position),
+      ),
+    },
+    properties,
+  };
 }
 
 /**

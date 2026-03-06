@@ -155,4 +155,44 @@ describe('Undo/Redo Integration', () => {
 
     expect(store.getAll()).toHaveLength(2);
   });
+
+  it('should keep undo/redo stable after mutating action constructor inputs', () => {
+    const store = new FeatureStore();
+    const history = new HistoryManager();
+
+    const createInput = makeFeature('f1');
+    const createAction = new CreateAction(createInput);
+    createInput.geometry.coordinates[0][0][0] = 999;
+
+    createAction.apply(store);
+    history.push(createAction);
+    expect(store.getById('f1')!.geometry.coordinates[0][0][0]).toBe(0);
+
+    const oldFeature = store.getById('f1')!;
+    const newFeature: LibreDrawFeature = {
+      ...oldFeature,
+      properties: { name: 'updated' },
+    };
+    const updateAction = new UpdateAction('f1', oldFeature, newFeature);
+    oldFeature.properties.name = 'tampered-old';
+    newFeature.properties.name = 'tampered-new';
+
+    updateAction.apply(store);
+    history.push(updateAction);
+    expect(store.getById('f1')!.properties.name).toBe('updated');
+
+    const deleteInput = store.getById('f1')!;
+    const deleteAction = new DeleteAction(deleteInput);
+    deleteInput.geometry.coordinates[0][0][0] = 777;
+
+    deleteAction.apply(store);
+    history.push(deleteAction);
+    expect(store.getById('f1')).toBeUndefined();
+
+    history.undo(store);
+    expect(store.getById('f1')!.geometry.coordinates[0][0][0]).toBe(0);
+
+    history.undo(store);
+    expect(store.getById('f1')!.properties.name).toBeUndefined();
+  });
 });

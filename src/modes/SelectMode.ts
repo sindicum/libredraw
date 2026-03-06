@@ -8,6 +8,7 @@ import type {
 import type { LibreDrawEventMap } from '../types/events';
 import { DeleteAction, UpdateAction } from '../types/features';
 import { FeatureStore } from '../core/FeatureStore';
+import { cloneFeature } from '../utils/featureSnapshot';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { point as turfPoint } from '@turf/helpers';
 import { hasRingSelfIntersection } from '../validation/intersection';
@@ -314,8 +315,8 @@ export class SelectMode implements Mode {
       );
       this.callbacks.pushToHistory(action);
       this.callbacks.emitEvent('update', {
-        feature: currentFeature,
-        oldFeature: this.dragStartFeature,
+        feature: cloneFeature(currentFeature),
+        oldFeature: cloneFeature(this.dragStartFeature),
       });
     }
 
@@ -344,8 +345,8 @@ export class SelectMode implements Mode {
       const action = new UpdateAction(selectedId, oldFeature, FeatureStore.cloneFeature(updatedFeature));
       this.callbacks.pushToHistory(action);
       this.callbacks.emitEvent('update', {
-        feature: updatedFeature,
-        oldFeature,
+        feature: cloneFeature(updatedFeature),
+        oldFeature: cloneFeature(oldFeature),
       });
 
       this.callbacks.renderFeatures();
@@ -379,8 +380,8 @@ export class SelectMode implements Mode {
       const action = new UpdateAction(selectedId, oldFeature, FeatureStore.cloneFeature(updatedFeature));
       this.callbacks.pushToHistory(action);
       this.callbacks.emitEvent('update', {
-        feature: updatedFeature,
-        oldFeature,
+        feature: cloneFeature(updatedFeature),
+        oldFeature: cloneFeature(oldFeature),
       });
 
       this.callbacks.renderFeatures();
@@ -649,7 +650,7 @@ export class SelectMode implements Mode {
         this.callbacks.removeFeatureFromStore(id);
         const action = new DeleteAction(feature);
         this.callbacks.pushToHistory(action);
-        this.callbacks.emitEvent('delete', { feature });
+        this.callbacks.emitEvent('delete', { feature: cloneFeature(feature) });
       }
     }
 

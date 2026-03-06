@@ -29,6 +29,23 @@ describe('validateFeature', () => {
     expect(result).toEqual(feature);
   });
 
+  it('should return a normalized copy instead of input reference', () => {
+    const feature = makeFeature();
+    const result = validateFeature(feature);
+
+    expect(result).not.toBe(feature);
+    expect(result.geometry).not.toBe(feature.geometry);
+    expect(result.geometry.coordinates[0]).not.toBe(
+      feature.geometry.coordinates[0],
+    );
+
+    result.geometry.coordinates[0][0][0] = 999;
+    result.properties.name = 'tampered';
+
+    expect(feature.geometry.coordinates[0][0][0]).toBe(0);
+    expect((feature.properties as Record<string, unknown>).name).toBeUndefined();
+  });
+
   it('should reject null', () => {
     expect(() => validateFeature(null)).toThrow(LibreDrawError);
   });
@@ -202,6 +219,25 @@ describe('validateGeoJSON', () => {
     const result = validateGeoJSON(fc);
     expect(result.type).toBe('FeatureCollection');
     expect(result.features).toHaveLength(1);
+  });
+
+  it('should return feature copies from FeatureCollection validation', () => {
+    const fc = {
+      type: 'FeatureCollection',
+      features: [makeFeature()],
+    };
+    const result = validateGeoJSON(fc);
+
+    expect(result.features[0]).not.toBe(fc.features[0]);
+    result.features[0].geometry.coordinates[0][0][0] = 999;
+
+    expect(
+      (
+        fc.features[0] as {
+          geometry: { coordinates: [number, number][][] };
+        }
+      ).geometry.coordinates[0][0][0],
+    ).toBe(0);
   });
 
   it('should accept an empty FeatureCollection', () => {

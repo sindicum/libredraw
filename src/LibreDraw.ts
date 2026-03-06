@@ -21,6 +21,7 @@ import { InputHandler } from './input/InputHandler';
 import { SourceManager } from './rendering/SourceManager';
 import { RenderManager } from './rendering/RenderManager';
 import { Toolbar } from './ui/Toolbar';
+import { cloneFeature } from './utils/featureSnapshot';
 
 /**
  * LibreDraw - A MapLibre GL JS polygon drawing and editing library.
@@ -413,7 +414,7 @@ export class LibreDraw {
     this.featureStore.remove(id);
     const action = new DeleteAction(feature);
     this.historyManager.push(action);
-    this.eventBus.emit('delete', { feature });
+    this.eventBus.emit('delete', { feature: cloneFeature(feature) });
     this.renderAllFeatures();
     this.updateToolbarHistoryState();
 

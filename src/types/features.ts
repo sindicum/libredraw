@@ -1,3 +1,5 @@
+import { cloneFeature } from '../utils/featureSnapshot';
+
 /**
  * A geographic coordinate pair [longitude, latitude].
  */
@@ -66,8 +68,11 @@ export interface FeatureStoreInterface {
  */
 export class CreateAction implements Action {
   public readonly type: ActionType = 'create';
+  public readonly feature: LibreDrawFeature;
 
-  constructor(public readonly feature: LibreDrawFeature) {}
+  constructor(feature: LibreDrawFeature) {
+    this.feature = cloneFeature(feature);
+  }
 
   apply(store: FeatureStoreInterface): void {
     store.add(this.feature);
@@ -83,12 +88,19 @@ export class CreateAction implements Action {
  */
 export class UpdateAction implements Action {
   public readonly type: ActionType = 'update';
+  public readonly id: string;
+  public readonly oldFeature: LibreDrawFeature;
+  public readonly newFeature: LibreDrawFeature;
 
   constructor(
-    public readonly id: string,
-    public readonly oldFeature: LibreDrawFeature,
-    public readonly newFeature: LibreDrawFeature,
-  ) {}
+    id: string,
+    oldFeature: LibreDrawFeature,
+    newFeature: LibreDrawFeature,
+  ) {
+    this.id = id;
+    this.oldFeature = cloneFeature(oldFeature);
+    this.newFeature = cloneFeature(newFeature);
+  }
 
   apply(store: FeatureStoreInterface): void {
     store.update(this.id, this.newFeature);
@@ -104,8 +116,11 @@ export class UpdateAction implements Action {
  */
 export class DeleteAction implements Action {
   public readonly type: ActionType = 'delete';
+  public readonly feature: LibreDrawFeature;
 
-  constructor(public readonly feature: LibreDrawFeature) {}
+  constructor(feature: LibreDrawFeature) {
+    this.feature = cloneFeature(feature);
+  }
 
   apply(store: FeatureStoreInterface): void {
     store.remove(this.feature.id);
