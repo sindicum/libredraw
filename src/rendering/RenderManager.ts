@@ -67,13 +67,24 @@ export class RenderManager {
   }
 
   /**
+   * Whether render layers and sources are ready on the current style.
+   */
+  isReadyForCurrentStyle(): boolean {
+    return this.sourceManager.hasAllSources() && this.hasAllLayers();
+  }
+
+  /**
    * Initialize rendering layers on the map.
    * Should be called after the map style and sources are ready.
    */
   initialize(): void {
-    if (this.initialized) return;
+    if (this.initialized && this.isReadyForCurrentStyle()) return;
 
     this.sourceManager.initialize();
+    if (this.hasAllLayers()) {
+      this.initialized = true;
+      return;
+    }
 
     // Feature fill layer
     if (!this.map.getLayer(LAYER_IDS.FILL)) {
@@ -350,5 +361,19 @@ export class RenderManager {
 
     this.sourceManager.updateFeatures(featureCollection);
     this.pendingFeatures = null;
+  }
+
+  /**
+   * Whether all draw layers exist on the current style.
+   */
+  private hasAllLayers(): boolean {
+    return Boolean(
+      this.map.getLayer(LAYER_IDS.FILL) &&
+        this.map.getLayer(LAYER_IDS.OUTLINE) &&
+        this.map.getLayer(LAYER_IDS.VERTICES) &&
+        this.map.getLayer(LAYER_IDS.PREVIEW) &&
+        this.map.getLayer(LAYER_IDS.EDIT_MIDPOINTS) &&
+        this.map.getLayer(LAYER_IDS.EDIT_VERTICES),
+    );
   }
 }

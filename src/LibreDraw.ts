@@ -49,6 +49,21 @@ export class LibreDraw {
   private toolbar: Toolbar | null = null;
   private selectMode: SelectMode;
   private destroyed = false;
+  private inputEnabled = false;
+
+  private handleStyleData = (): void => {
+    if (this.destroyed || !this.map.isStyleLoaded()) return;
+    if (this.renderManager.isReadyForCurrentStyle()) return;
+
+    this.renderManager.initialize();
+    this.renderAllFeatures();
+
+    if (this.modeManager.getMode() === 'select') {
+      this.selectMode.refreshVertexHandles();
+    } else {
+      this.renderManager.clearVertices();
+    }
+  };
 
   /**
    * Create a new LibreDraw instance attached to a MapLibre GL JS map.
@@ -172,6 +187,7 @@ export class LibreDraw {
     }
 
     // Initialize when map is ready
+    map.on('styledata', this.handleStyleData);
     if (map.isStyleLoaded()) {
       this.initialize();
     } else {
@@ -298,6 +314,7 @@ export class LibreDraw {
     this.assertNotDestroyed();
     const validated = validateGeoJSON(geojson);
     this.featureStore.setAll(validated.features);
+    this.resetSelectionState();
     this.historyManager.clear();
     this.renderAllFeatures();
     this.updateToolbarHistoryState();
@@ -602,6 +619,7 @@ export class LibreDraw {
     if (this.destroyed) return;
     this.destroyed = true;
 
+    this.map.off('styledata', this.handleStyleData);
     this.modeManager.setMode('idle');
     this.inputHandler.destroy();
     this.renderManager.destroy();
@@ -621,7 +639,11 @@ export class LibreDraw {
   private initialize(): void {
     if (this.destroyed) return;
     this.renderManager.initialize();
-    this.inputHandler.enable();
+    if (!this.inputEnabled) {
+      this.inputHandler.enable();
+      this.inputEnabled = true;
+    }
+    this.renderAllFeatures();
   }
 
   /**
@@ -685,6 +707,15 @@ export class LibreDraw {
         this.historyManager.canRedo(),
       );
     }
+  }
+
+  /**
+   * Clear selection-related rendering and state.
+   */
+  private resetSelectionState(): void {
+    this.selectMode.clearSelection();
+    this.renderManager.setSelectedIds([]);
+    this.renderManager.clearVertices();
   }
 
   /**

@@ -1,0 +1,242 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Map as MaplibreMap } from 'maplibre-gl';
+import { LibreDraw } from '../../src/LibreDraw';
+import { SOURCE_IDS } from '../../src/rendering/SourceManager';
+import { LAYER_IDS } from '../../src/rendering/RenderManager';
+
+class FakeGeoJSONSource {
+  public data: GeoJSON.FeatureCollection;
+
+  constructor(initialData: GeoJSON.FeatureCollection) {
+    this.data = initialData;
+  }
+
+  setData(data: GeoJSON.FeatureCollection): void {
+    this.data = data;
+  }
+}
+
+class FakeMap {
+  private styleLoaded = true;
+  private canvas: HTMLDivElement;
+  private sources: Map<string, FakeGeoJSONSource> = new Map();
+  private layers: Map<string, unknown> = new Map();
+  private listeners: Map<string, Set<(...args: unknown[]) => void>> =
+    new Map();
+
+  public dragPan = {
+    enable: vi.fn(),
+    disable: vi.fn(),
+  };
+
+  public doubleClickZoom = {
+    enable: vi.fn(),
+    disable: vi.fn(),
+  };
+
+  constructor() {
+    this.canvas = document.createElement('div');
+    vi.spyOn(this.canvas, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 1000,
+      height: 600,
+      top: 0,
+      left: 0,
+      right: 1000,
+      bottom: 600,
+      toJSON: () => ({}),
+    } as DOMRect);
+  }
+
+  asMap(): MaplibreMap {
+    return this as unknown as MaplibreMap;
+  }
+
+  emit(event: string, ...args: unknown[]): void {
+    const set = this.listeners.get(event);
+    if (!set) return;
+    for (const listener of set) {
+      listener(...args);
+    }
+  }
+
+  on(event: string, listener: (...args: unknown[]) => void): void {
+    const set = this.listeners.get(event) ?? new Set();
+    set.add(listener);
+    this.listeners.set(event, set);
+  }
+
+  off(event: string, listener: (...args: unknown[]) => void): void {
+    this.listeners.get(event)?.delete(listener);
+  }
+
+  once(event: string, listener: (...args: unknown[]) => void): void {
+    const wrapped = (...args: unknown[]): void => {
+      this.off(event, wrapped);
+      listener(...args);
+    };
+    this.on(event, wrapped);
+  }
+
+  isStyleLoaded(): boolean {
+    return this.styleLoaded;
+  }
+
+  setStyle(_style: string): void {
+    this.styleLoaded = false;
+    this.sources.clear();
+    this.layers.clear();
+    this.emit('styledata');
+    this.styleLoaded = true;
+    this.emit('styledata');
+  }
+
+  getCanvasContainer(): HTMLDivElement {
+    return this.canvas;
+  }
+
+  getContainer(): HTMLDivElement {
+    return this.canvas;
+  }
+
+  unproject(point: [number, number]): { lng: number; lat: number } {
+    return { lng: point[0], lat: point[1] };
+  }
+
+  project(point: [number, number]): { x: number; y: number } {
+    return { x: point[0], y: point[1] };
+  }
+
+  getSource<T>(id: string): T | undefined {
+    return this.sources.get(id) as T | undefined;
+  }
+
+  addSource(
+    id: string,
+    source: { type: 'geojson'; data: GeoJSON.FeatureCollection },
+  ): void {
+    this.sources.set(id, new FakeGeoJSONSource(source.data));
+  }
+
+  removeSource(id: string): void {
+    this.sources.delete(id);
+  }
+
+  getLayer(id: string): unknown {
+    return this.layers.get(id);
+  }
+
+  addLayer(layer: { id: string }): void {
+    this.layers.set(layer.id, layer);
+  }
+
+  removeLayer(id: string): void {
+    this.layers.delete(id);
+  }
+
+  hasSource(id: string): boolean {
+    return this.sources.has(id);
+  }
+
+  hasLayer(id: string): boolean {
+    return this.layers.has(id);
+  }
+
+  getSourceData(id: string): GeoJSON.FeatureCollection | undefined {
+    return this.sources.get(id)?.data;
+  }
+}
+
+function makeFeature(id: string): GeoJSON.Feature {
+  return {
+    id,
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [0, 0],
+          [10, 0],
+          [10, 10],
+          [0, 10],
+          [0, 0],
+        ],
+      ],
+    },
+  };
+}
+
+describe('LibreDraw lifecycle integration', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      ((cb: FrameRequestCallback): number => {
+        cb(0);
+        return 1;
+      }) as typeof requestAnimationFrame,
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('should clear selection and vertex handles after setFeatures', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    draw.addFeatures([makeFeature('f1')]);
+    draw.setMode('select');
+    draw.selectFeature('f1');
+
+    expect(draw.getSelectedFeatureIds()).toEqual(['f1']);
+    expect(map.getSourceData(SOURCE_IDS.EDIT_VERTICES)?.features.length).toBeGreaterThan(0);
+
+    draw.setFeatures({
+      type: 'FeatureCollection',
+      features: [makeFeature('f2')],
+    });
+
+    expect(draw.getSelectedFeatureIds()).toEqual([]);
+    expect(map.getSourceData(SOURCE_IDS.EDIT_VERTICES)?.features).toHaveLength(0);
+
+    draw.destroy();
+  });
+
+  it('should recover layers/sources and keep interactions working after setStyle', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    draw.addFeatures([makeFeature('f1')]);
+    expect(map.hasSource(SOURCE_IDS.FEATURES)).toBe(true);
+    expect(map.hasLayer(LAYER_IDS.FILL)).toBe(true);
+
+    map.setStyle('new-style');
+
+    expect(map.hasSource(SOURCE_IDS.FEATURES)).toBe(true);
+    expect(map.hasSource(SOURCE_IDS.PREVIEW)).toBe(true);
+    expect(map.hasSource(SOURCE_IDS.EDIT_VERTICES)).toBe(true);
+    expect(map.hasLayer(LAYER_IDS.FILL)).toBe(true);
+    expect(map.hasLayer(LAYER_IDS.OUTLINE)).toBe(true);
+    expect(map.hasLayer(LAYER_IDS.VERTICES)).toBe(true);
+    expect(map.getSourceData(SOURCE_IDS.FEATURES)?.features).toHaveLength(1);
+
+    draw.setMode('select');
+    draw.selectFeature('f1');
+    expect(draw.getSelectedFeatureIds()).toEqual(['f1']);
+
+    draw.deleteFeature('f1');
+    expect(draw.getFeatures()).toHaveLength(0);
+
+    expect(draw.undo()).toBe(true);
+    expect(draw.getFeatures()).toHaveLength(1);
+
+    expect(draw.redo()).toBe(true);
+    expect(draw.getFeatures()).toHaveLength(0);
+
+    draw.destroy();
+  });
+});

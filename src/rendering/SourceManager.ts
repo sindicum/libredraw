@@ -32,11 +32,22 @@ export class SourceManager {
   }
 
   /**
+   * Whether all required GeoJSON sources exist on the current style.
+   */
+  hasAllSources(): boolean {
+    return Boolean(
+      this.map.getSource(SOURCE_IDS.FEATURES) &&
+        this.map.getSource(SOURCE_IDS.PREVIEW) &&
+        this.map.getSource(SOURCE_IDS.EDIT_VERTICES),
+    );
+  }
+
+  /**
    * Initialize the GeoJSON sources on the map.
    * Should be called after the map style has loaded.
    */
   initialize(): void {
-    if (this.initialized) return;
+    if (this.initialized && this.hasAllSources()) return;
 
     if (!this.map.getSource(SOURCE_IDS.FEATURES)) {
       this.map.addSource(SOURCE_IDS.FEATURES, {
