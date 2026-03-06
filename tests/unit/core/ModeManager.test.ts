@@ -4,6 +4,10 @@ import type { Mode } from '../../../src/modes/Mode';
 
 function createMockMode(): Mode {
   return {
+    mapInteractions: vi.fn(() => ({
+      dragPan: true,
+      doubleClickZoom: true,
+    })),
     activate: vi.fn(),
     deactivate: vi.fn(),
     onPointerDown: vi.fn(),

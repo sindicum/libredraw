@@ -1,6 +1,14 @@
 import type { NormalizedInputEvent } from '../types/input';
 
 /**
+ * Map interaction settings that a mode requires while active.
+ */
+export interface MapInteractionConfig {
+  dragPan: boolean;
+  doubleClickZoom: boolean;
+}
+
+/**
  * Interface that all drawing modes must implement.
  *
  * Each mode handles user input differently and can maintain
@@ -8,6 +16,9 @@ import type { NormalizedInputEvent } from '../types/input';
  * by the ModeManager during transitions.
  */
 export interface Mode {
+  /** Map interaction settings required by this mode. */
+  mapInteractions(): MapInteractionConfig;
+
   /** Called when the mode becomes active. */
   activate(): void;
 

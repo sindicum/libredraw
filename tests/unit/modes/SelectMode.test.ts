@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SelectMode } from '../../../src/modes/SelectMode';
-import type { SelectModeCallbacks } from '../../../src/modes/SelectMode';
+import type { ModeContext } from '../../../src/core/ModeContext';
 import type { NormalizedInputEvent } from '../../../src/types/input';
 import type { LibreDrawFeature } from '../../../src/types/features';
 
@@ -61,9 +61,23 @@ function createTouchEvent(lng: number, lat: number): NormalizedInputEvent {
   };
 }
 
+interface SelectModeMocks {
+  removeFeatureFromStore: ReturnType<typeof vi.fn>;
+  pushToHistory: ReturnType<typeof vi.fn>;
+  emitEvent: ReturnType<typeof vi.fn>;
+  renderFeatures: ReturnType<typeof vi.fn>;
+  getFeatureById: ReturnType<typeof vi.fn>;
+  getAllFeatures: ReturnType<typeof vi.fn>;
+  getScreenPoint: ReturnType<typeof vi.fn>;
+  updateFeatureInStore: ReturnType<typeof vi.fn>;
+  renderVertices: ReturnType<typeof vi.fn>;
+  clearVertices: ReturnType<typeof vi.fn>;
+  setDragPan: ReturnType<typeof vi.fn>;
+}
+
 function createCallbacks(
   featureMap: Map<string, LibreDrawFeature>,
-): SelectModeCallbacks {
+): SelectModeMocks {
   return {
     removeFeatureFromStore: vi.fn((id: string) => {
       const f = featureMap.get(id);
@@ -88,8 +102,37 @@ function createCallbacks(
   };
 }
 
+function createModeContext(callbacks: SelectModeMocks): ModeContext {
+  return {
+    store: {
+      add: vi.fn(),
+      update: callbacks.updateFeatureInStore,
+      remove: callbacks.removeFeatureFromStore,
+      getById: callbacks.getFeatureById,
+      getAll: callbacks.getAllFeatures,
+    },
+    history: {
+      push: callbacks.pushToHistory,
+    },
+    events: {
+      emit: callbacks.emitEvent,
+    },
+    render: {
+      renderFeatures: callbacks.renderFeatures,
+      renderPreview: vi.fn(),
+      clearPreview: vi.fn(),
+      renderVertices: callbacks.renderVertices,
+      clearVertices: callbacks.clearVertices,
+      setSelectedIds: vi.fn(),
+    },
+    getScreenPoint: callbacks.getScreenPoint,
+    setDragPan: callbacks.setDragPan,
+  };
+}
+
 describe('SelectMode', () => {
-  let callbacks: SelectModeCallbacks;
+  let callbacks: SelectModeMocks;
+  let context: ModeContext;
   let selectMode: SelectMode;
   let onSelectionChange: ReturnType<typeof vi.fn>;
   let featureMap: Map<string, LibreDrawFeature>;
@@ -98,8 +141,9 @@ describe('SelectMode', () => {
     featureMap = new Map();
     featureMap.set('f1', makeFeature('f1'));
     callbacks = createCallbacks(featureMap);
+    context = createModeContext(callbacks);
     onSelectionChange = vi.fn();
-    selectMode = new SelectMode(callbacks, onSelectionChange);
+    selectMode = new SelectMode(context, onSelectionChange);
   });
 
   // --- Original selection tests ---
@@ -216,7 +260,6 @@ describe('SelectMode', () => {
     selectMode.onPointerDown(createPointerEvent(5, 5));
 
     expect(callbacks.renderVertices).toHaveBeenCalledWith(
-      'f1',
       expect.any(Array),
       expect.any(Array),
       undefined,
@@ -250,7 +293,6 @@ describe('SelectMode', () => {
     selectMode.refreshVertexHandles();
 
     expect(callbacks.renderVertices).toHaveBeenCalledWith(
-      'f1',
       expect.any(Array),
       expect.any(Array),
       undefined,
@@ -383,7 +425,6 @@ describe('SelectMode', () => {
 
       // Vertex handles should be rendered with the new vertex count
       expect(callbacks.renderVertices).toHaveBeenCalledWith(
-        'f1',
         expect.any(Array),
         expect.any(Array),
         undefined,
@@ -462,7 +503,6 @@ describe('SelectMode', () => {
       selectMode.onPointerMove(createPointerEvent(0.5, 0));
 
       expect(callbacks.renderVertices).toHaveBeenCalledWith(
-        'f1',
         expect.any(Array),
         expect.any(Array),
         0, // highlight index for vertex (0,0)
@@ -482,7 +522,6 @@ describe('SelectMode', () => {
       selectMode.onPointerMove(createPointerEvent(5, 5));
 
       expect(callbacks.renderVertices).toHaveBeenCalledWith(
-        'f1',
         expect.any(Array),
         expect.any(Array),
         undefined, // no highlight
@@ -540,7 +579,7 @@ describe('SelectMode', () => {
       featureMap.set('t1', makeTriangle('t1'));
 
       const triCallbacks = createCallbacks(featureMap);
-      const triSelect = new SelectMode(triCallbacks);
+      const triSelect = new SelectMode(createModeContext(triCallbacks));
       triSelect.activate();
       triSelect.onPointerDown(createPointerEvent(5, 3)); // select triangle
 
@@ -658,7 +697,6 @@ describe('SelectMode', () => {
       selectMode.onPointerMove(createPointerEvent(7, 8));
 
       expect(callbacks.renderVertices).toHaveBeenCalledWith(
-        'f1',
         expect.any(Array),
         expect.any(Array),
         undefined,

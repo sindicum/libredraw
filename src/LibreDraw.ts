@@ -11,12 +11,14 @@ import { EventBus } from './core/EventBus';
 import { FeatureStore } from './core/FeatureStore';
 import { HistoryManager } from './core/HistoryManager';
 import { ModeManager } from './core/ModeManager';
+import type { ModeContext } from './core/ModeContext';
 import type { ModeName } from './types/mode';
 import { LibreDrawError } from './core/errors';
 import { validateGeoJSON, validateFeature } from './validation/geojson';
 import { IdleMode } from './modes/IdleMode';
 import { DrawMode } from './modes/DrawMode';
 import { SelectMode } from './modes/SelectMode';
+import type { MapInteractionConfig } from './modes/Mode';
 import { InputHandler } from './input/InputHandler';
 import { SourceManager } from './rendering/SourceManager';
 import { RenderManager } from './rendering/RenderManager';
@@ -99,54 +101,47 @@ export class LibreDraw {
     this.renderManager = new RenderManager(map, this.sourceManager);
 
     // Mode setup
-    const drawMode = new DrawMode({
-      addFeatureToStore: (feature) => this.featureStore.add(feature),
-      pushToHistory: (action) => {
-        this.historyManager.push(action);
-        this.updateToolbarHistoryState();
+    const modeContext: ModeContext = {
+      store: {
+        add: (feature) => this.featureStore.add(feature),
+        update: (id, feature) => this.featureStore.update(id, feature),
+        remove: (id) => this.featureStore.remove(id),
+        getById: (id) => this.featureStore.getById(id),
+        getAll: () => this.featureStore.getAll(),
       },
-      emitEvent: (type, payload) => this.eventBus.emit(type, payload),
-      renderPreview: (coords) => this.renderManager.renderPreview(coords),
-      clearPreview: () => this.renderManager.clearPreview(),
-      renderFeatures: () => this.renderAllFeatures(),
+      history: {
+        push: (action) => {
+          this.historyManager.push(action);
+          this.updateToolbarHistoryState();
+        },
+      },
+      events: {
+        emit: (type, payload) => this.eventBus.emit(type, payload),
+      },
+      render: {
+        renderFeatures: () => this.renderAllFeatures(),
+        renderPreview: (coords) => this.renderManager.renderPreview(coords),
+        clearPreview: () => this.renderManager.clearPreview(),
+        renderVertices: (vertices, midpoints, highlightIndex) =>
+          this.renderManager.renderVertices(vertices, midpoints, highlightIndex),
+        clearVertices: () => this.renderManager.clearVertices(),
+        setSelectedIds: (ids) => this.renderManager.setSelectedIds(ids),
+      },
       getScreenPoint: (lngLat) => {
         const pt = map.project([lngLat.lng, lngLat.lat]);
         return { x: pt.x, y: pt.y };
       },
-    });
+      setDragPan: (enabled) => {
+        if (enabled) {
+          map.dragPan.enable();
+        } else {
+          map.dragPan.disable();
+        }
+      },
+    };
 
-    this.selectMode = new SelectMode(
-      {
-        removeFeatureFromStore: (id) => this.featureStore.remove(id),
-        pushToHistory: (action) => {
-          this.historyManager.push(action);
-          this.updateToolbarHistoryState();
-        },
-        emitEvent: (type, payload) => this.eventBus.emit(type, payload),
-        renderFeatures: () => this.renderAllFeatures(),
-        getFeatureById: (id) => this.featureStore.getById(id),
-        getAllFeatures: () => this.featureStore.getAll(),
-        getScreenPoint: (lngLat) => {
-          const pt = map.project([lngLat.lng, lngLat.lat]);
-          return { x: pt.x, y: pt.y };
-        },
-        updateFeatureInStore: (id, feature) =>
-          this.featureStore.update(id, feature),
-        renderVertices: (_featureId, vertices, midpoints, highlightIndex) =>
-          this.renderManager.renderVertices(vertices, midpoints, highlightIndex),
-        clearVertices: () => this.renderManager.clearVertices(),
-        setDragPan: (enabled) => {
-          if (enabled) {
-            map.dragPan.enable();
-          } else {
-            map.dragPan.disable();
-          }
-        },
-      },
-      (selectedIds) => {
-        this.renderManager.setSelectedIds(selectedIds);
-      },
-    );
+    const drawMode = new DrawMode(modeContext);
+    this.selectMode = new SelectMode(modeContext);
 
     // Register modes
     this.modeManager.registerMode('idle', new IdleMode());
@@ -160,18 +155,16 @@ export class LibreDraw {
         this.toolbar.setActiveMode(mode);
       }
 
-      // Disable map interactions that conflict with drawing/editing
-      if (mode === 'draw') {
-        map.dragPan.disable();
-        map.doubleClickZoom.disable();
-      } else if (mode === 'select') {
-        map.doubleClickZoom.disable();
-        // dragPan stays enabled; SelectMode disables it during vertex drag
-      } else {
-        map.dragPan.enable();
-        map.doubleClickZoom.enable();
+      const currentMode = this.modeManager.getCurrentMode();
+      if (currentMode) {
+        this.applyMapInteractions(currentMode.mapInteractions());
       }
     });
+
+    const initialMode = this.modeManager.getCurrentMode();
+    if (initialMode) {
+      this.applyMapInteractions(initialMode.mapInteractions());
+    }
 
     // Input handling
     this.inputHandler = new InputHandler(
@@ -695,6 +688,23 @@ export class LibreDraw {
       this.historyManager.canUndo(),
       this.historyManager.canRedo(),
     );
+  }
+
+  /**
+   * Apply map interaction settings declared by the active mode.
+   */
+  private applyMapInteractions(config: MapInteractionConfig): void {
+    if (config.dragPan) {
+      this.map.dragPan.enable();
+    } else {
+      this.map.dragPan.disable();
+    }
+
+    if (config.doubleClickZoom) {
+      this.map.doubleClickZoom.enable();
+    } else {
+      this.map.doubleClickZoom.disable();
+    }
   }
 
   /**

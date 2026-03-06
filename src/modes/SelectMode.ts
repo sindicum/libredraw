@@ -1,14 +1,10 @@
 import type { Mode } from './Mode';
 import type { NormalizedInputEvent } from '../types/input';
-import type {
-  LibreDrawFeature,
-  Position,
-  Action,
-} from '../types/features';
-import type { LibreDrawEventMap } from '../types/events';
+import type { LibreDrawFeature, Position } from '../types/features';
 import { DeleteAction, UpdateAction } from '../types/features';
 import { FeatureStore } from '../core/FeatureStore';
 import { cloneFeature } from '../utils/featureSnapshot';
+import type { ModeContext } from '../core/ModeContext';
 import {
   computeMidpoints,
   getVertices,
@@ -37,37 +33,6 @@ const HIT_THRESHOLD_TOUCH_PX = 24;
 const MIN_VERTICES = 3;
 
 /**
- * Callbacks that SelectMode needs from the host application.
- */
-export interface SelectModeCallbacks {
-  /** Remove a feature from the store. */
-  removeFeatureFromStore(id: string): LibreDrawFeature | undefined;
-  /** Push an action to the history manager. */
-  pushToHistory(action: Action): void;
-  /** Emit an event through the event bus. */
-  emitEvent<K extends keyof LibreDrawEventMap>(
-    type: K,
-    payload: LibreDrawEventMap[K],
-  ): void;
-  /** Re-render all features. */
-  renderFeatures(): void;
-  /** Get a feature by ID. */
-  getFeatureById(id: string): LibreDrawFeature | undefined;
-  /** Get all features in the store. */
-  getAllFeatures(): LibreDrawFeature[];
-  /** Convert a geographic coordinate to a screen point. */
-  getScreenPoint(lngLat: { lng: number; lat: number }): { x: number; y: number };
-  /** Update a feature in the store. */
-  updateFeatureInStore(id: string, feature: LibreDrawFeature): void;
-  /** Render vertex and midpoint markers for editing. */
-  renderVertices(featureId: string, vertices: Position[], midpoints: Position[], highlightIndex?: number): void;
-  /** Clear vertex/midpoint markers. */
-  clearVertices(): void;
-  /** Enable or disable map drag panning. */
-  setDragPan(enabled: boolean): void;
-}
-
-/**
  * Selection and editing mode for existing polygons.
  *
  * Users click on a polygon to select it. Selected polygons display
@@ -78,7 +43,7 @@ export interface SelectModeCallbacks {
 export class SelectMode implements Mode {
   private selectedIds: Set<string> = new Set();
   private isActive = false;
-  private callbacks: SelectModeCallbacks;
+  private context: ModeContext;
   private onSelectionChange?: (selectedIds: string[]) => void;
 
   // Vertex drag state
@@ -94,11 +59,18 @@ export class SelectMode implements Mode {
   private highlightedVertexIndex = -1;
 
   constructor(
-    callbacks: SelectModeCallbacks,
+    context: ModeContext,
     onSelectionChange?: (selectedIds: string[]) => void,
   ) {
-    this.callbacks = callbacks;
+    this.context = context;
     this.onSelectionChange = onSelectionChange;
+  }
+
+  mapInteractions(): { dragPan: boolean; doubleClickZoom: boolean } {
+    return {
+      dragPan: true,
+      doubleClickZoom: false,
+    };
   }
 
   activate(): void {
@@ -111,7 +83,7 @@ export class SelectMode implements Mode {
     this.endDrag();
     if (this.selectedIds.size > 0) {
       this.selectedIds.clear();
-      this.callbacks.clearVertices();
+      this.context.render.clearVertices();
       this.notifySelectionChange();
     }
   }
@@ -135,7 +107,7 @@ export class SelectMode implements Mode {
   selectFeature(id: string): boolean {
     if (!this.isActive) return false;
 
-    const feature = this.callbacks.getFeatureById(id);
+    const feature = this.context.store.getById(id);
     if (!feature) return false;
 
     this.highlightedVertexIndex = -1;
@@ -144,7 +116,7 @@ export class SelectMode implements Mode {
     this.selectedIds.add(id);
     this.showVertexHandles(feature);
     this.notifySelectionChange();
-    this.callbacks.renderFeatures();
+    this.context.render.renderFeatures();
     return true;
   }
 
@@ -161,9 +133,9 @@ export class SelectMode implements Mode {
     this.highlightedVertexIndex = -1;
     this.endDrag();
     this.selectedIds.clear();
-    this.callbacks.clearVertices();
+    this.context.render.clearVertices();
     this.notifySelectionChange();
-    this.callbacks.renderFeatures();
+    this.context.render.renderFeatures();
   }
 
   onPointerDown(event: NormalizedInputEvent): void {
@@ -172,7 +144,7 @@ export class SelectMode implements Mode {
     // If a feature is selected, check vertex/midpoint hits first
     const selectedId = this.getFirstSelectedId();
     if (selectedId) {
-      const feature = this.callbacks.getFeatureById(selectedId);
+      const feature = this.context.store.getById(selectedId);
       if (feature) {
         const vertices = getVertices(feature);
         const threshold = this.getThreshold(event);
@@ -196,7 +168,7 @@ export class SelectMode implements Mode {
           const beforeInsert = FeatureStore.cloneFeature(feature);
           // Insert new vertex at the midpoint position
           const newFeature = insertVertex(feature, midIdx + 1, midpoints[midIdx]);
-          this.callbacks.updateFeatureInStore(selectedId, newFeature);
+          this.context.store.update(selectedId, newFeature);
           this.showVertexHandles(newFeature);
           this.startDrag(newFeature, midIdx + 1);
           // Override dragStartFeature with pre-insertion state so undo reverts the insertion too
@@ -218,7 +190,7 @@ export class SelectMode implements Mode {
 
     // Standard polygon selection logic
     const clickPoint = turfPoint([event.lngLat.lng, event.lngLat.lat]);
-    const features = this.callbacks.getAllFeatures();
+    const features = this.context.store.getAll();
 
     let hitFeature: LibreDrawFeature | undefined;
     for (let i = features.length - 1; i >= 0; i--) {
@@ -233,7 +205,7 @@ export class SelectMode implements Mode {
     if (hitFeature) {
       if (this.selectedIds.has(hitFeature.id)) {
         this.selectedIds.delete(hitFeature.id);
-        this.callbacks.clearVertices();
+        this.context.render.clearVertices();
       } else {
         this.selectedIds.clear();
         this.selectedIds.add(hitFeature.id);
@@ -241,11 +213,11 @@ export class SelectMode implements Mode {
       }
     } else {
       this.selectedIds.clear();
-      this.callbacks.clearVertices();
+      this.context.render.clearVertices();
     }
 
     this.notifySelectionChange();
-    this.callbacks.renderFeatures();
+    this.context.render.renderFeatures();
   }
 
   onPointerMove(event: NormalizedInputEvent): void {
@@ -256,7 +228,7 @@ export class SelectMode implements Mode {
       const selectedId = this.getFirstSelectedId();
       if (!selectedId) return;
 
-      const feature = this.callbacks.getFeatureById(selectedId);
+      const feature = this.context.store.getById(selectedId);
       if (!feature) return;
 
       const newPos: Position = [event.lngLat.lng, event.lngLat.lat];
@@ -267,8 +239,8 @@ export class SelectMode implements Mode {
         return;
       }
 
-      this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
-      this.callbacks.renderFeatures();
+      this.context.store.update(selectedId, updatedFeature);
+      this.context.render.renderFeatures();
       this.showVertexHandles(updatedFeature);
       return;
     }
@@ -282,8 +254,8 @@ export class SelectMode implements Mode {
       const dLat = event.lngLat.lat - this.dragPolygonStartLngLat.lat;
       const updatedFeature = movePolygon(this.dragStartFeature, dLng, dLat);
 
-      this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
-      this.callbacks.renderFeatures();
+      this.context.store.update(selectedId, updatedFeature);
+      this.context.render.renderFeatures();
       this.showVertexHandles(updatedFeature);
       return;
     }
@@ -292,7 +264,7 @@ export class SelectMode implements Mode {
     const selectedId = this.getFirstSelectedId();
     if (!selectedId) return;
 
-    const feature = this.callbacks.getFeatureById(selectedId);
+    const feature = this.context.store.getById(selectedId);
     if (!feature) return;
 
     const vertices = getVertices(feature);
@@ -314,7 +286,7 @@ export class SelectMode implements Mode {
       return;
     }
 
-    const currentFeature = this.callbacks.getFeatureById(selectedId);
+    const currentFeature = this.context.store.getById(selectedId);
     if (
       currentFeature &&
       this.hasGeometryChanged(this.dragStartFeature, currentFeature)
@@ -324,8 +296,8 @@ export class SelectMode implements Mode {
         this.dragStartFeature,
         FeatureStore.cloneFeature(currentFeature),
       );
-      this.callbacks.pushToHistory(action);
-      this.callbacks.emitEvent('update', {
+      this.context.history.push(action);
+      this.context.events.emit('update', {
         feature: cloneFeature(currentFeature),
         oldFeature: cloneFeature(this.dragStartFeature),
       });
@@ -370,7 +342,7 @@ export class SelectMode implements Mode {
     const selectedId = this.getFirstSelectedId();
     if (!selectedId) return;
 
-    const feature = this.callbacks.getFeatureById(selectedId);
+    const feature = this.context.store.getById(selectedId);
     if (!feature) return;
 
     const vertices = getVertices(feature);
@@ -381,16 +353,16 @@ export class SelectMode implements Mode {
     if (vertexIdx >= 0 && vertices.length > MIN_VERTICES) {
       const oldFeature = FeatureStore.cloneFeature(feature);
       const updatedFeature = removeVertex(feature, vertexIdx);
-      this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
+      this.context.store.update(selectedId, updatedFeature);
 
       const action = new UpdateAction(selectedId, oldFeature, FeatureStore.cloneFeature(updatedFeature));
-      this.callbacks.pushToHistory(action);
-      this.callbacks.emitEvent('update', {
+      this.context.history.push(action);
+      this.context.events.emit('update', {
         feature: cloneFeature(updatedFeature),
         oldFeature: cloneFeature(oldFeature),
       });
 
-      this.callbacks.renderFeatures();
+      this.context.render.renderFeatures();
       this.showVertexHandles(updatedFeature);
 
       event.originalEvent.preventDefault();
@@ -406,7 +378,7 @@ export class SelectMode implements Mode {
       return;
     }
 
-    const feature = this.callbacks.getFeatureById(selectedId);
+    const feature = this.context.store.getById(selectedId);
     if (!feature) return;
 
     // Check if long press is on a vertex — delete it
@@ -416,16 +388,16 @@ export class SelectMode implements Mode {
     if (vertexIdx >= 0 && vertices.length > MIN_VERTICES) {
       const oldFeature = FeatureStore.cloneFeature(feature);
       const updatedFeature = removeVertex(feature, vertexIdx);
-      this.callbacks.updateFeatureInStore(selectedId, updatedFeature);
+      this.context.store.update(selectedId, updatedFeature);
 
       const action = new UpdateAction(selectedId, oldFeature, FeatureStore.cloneFeature(updatedFeature));
-      this.callbacks.pushToHistory(action);
-      this.callbacks.emitEvent('update', {
+      this.context.history.push(action);
+      this.context.events.emit('update', {
         feature: cloneFeature(updatedFeature),
         oldFeature: cloneFeature(oldFeature),
       });
 
-      this.callbacks.renderFeatures();
+      this.context.render.renderFeatures();
       this.showVertexHandles(updatedFeature);
     }
   }
@@ -472,7 +444,7 @@ export class SelectMode implements Mode {
     let minIdx = -1;
 
     for (let i = 0; i < points.length; i++) {
-      const screenPt = this.callbacks.getScreenPoint({
+      const screenPt = this.context.getScreenPoint({
         lng: points[i][0],
         lat: points[i][1],
       });
@@ -495,7 +467,7 @@ export class SelectMode implements Mode {
     this.dragging = true;
     this.dragVertexIndex = vertexIndex;
     this.dragStartFeature = FeatureStore.cloneFeature(feature);
-    this.callbacks.setDragPan(false);
+    this.context.setDragPan(false);
   }
 
   /**
@@ -508,7 +480,7 @@ export class SelectMode implements Mode {
     this.draggingPolygon = true;
     this.dragPolygonStartLngLat = startLngLat;
     this.dragStartFeature = FeatureStore.cloneFeature(feature);
-    this.callbacks.setDragPan(false);
+    this.context.setDragPan(false);
   }
 
   /**
@@ -516,7 +488,7 @@ export class SelectMode implements Mode {
    */
   private endDrag(): void {
     if (this.dragging || this.draggingPolygon) {
-      this.callbacks.setDragPan(true);
+      this.context.setDragPan(true);
     }
     this.dragging = false;
     this.dragVertexIndex = -1;
@@ -536,13 +508,13 @@ export class SelectMode implements Mode {
     const selectedId = this.getFirstSelectedId();
     if (!selectedId) return;
 
-    const feature = this.callbacks.getFeatureById(selectedId);
+    const feature = this.context.store.getById(selectedId);
     if (feature) {
       this.showVertexHandles(feature);
     } else {
       // Feature was removed (e.g. undo of a create) — clear selection
       this.selectedIds.delete(selectedId);
-      this.callbacks.clearVertices();
+      this.context.render.clearVertices();
       this.notifySelectionChange();
     }
   }
@@ -553,8 +525,7 @@ export class SelectMode implements Mode {
   private showVertexHandles(feature: LibreDrawFeature): void {
     const vertices = getVertices(feature);
     const midpoints = computeMidpoints(vertices);
-    this.callbacks.renderVertices(
-      feature.id,
+    this.context.render.renderVertices(
       vertices,
       midpoints,
       this.highlightedVertexIndex >= 0 ? this.highlightedVertexIndex : undefined,
@@ -576,19 +547,19 @@ export class SelectMode implements Mode {
 
     const idsToDelete = Array.from(this.selectedIds);
     for (const id of idsToDelete) {
-      const feature = this.callbacks.getFeatureById(id);
+      const feature = this.context.store.getById(id);
       if (feature) {
-        this.callbacks.removeFeatureFromStore(id);
+        this.context.store.remove(id);
         const action = new DeleteAction(feature);
-        this.callbacks.pushToHistory(action);
-        this.callbacks.emitEvent('delete', { feature: cloneFeature(feature) });
+        this.context.history.push(action);
+        this.context.events.emit('delete', { feature: cloneFeature(feature) });
       }
     }
 
     this.selectedIds.clear();
-    this.callbacks.clearVertices();
+    this.context.render.clearVertices();
     this.notifySelectionChange();
-    this.callbacks.renderFeatures();
+    this.context.render.renderFeatures();
   }
 
   /**
@@ -596,7 +567,8 @@ export class SelectMode implements Mode {
    */
   private notifySelectionChange(): void {
     const ids = this.getSelectedIds();
-    this.callbacks.emitEvent('selectionchange', { selectedIds: ids });
+    this.context.render.setSelectedIds(ids);
+    this.context.events.emit('selectionchange', { selectedIds: ids });
     if (this.onSelectionChange) {
       this.onSelectionChange(ids);
     }

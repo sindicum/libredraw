@@ -6,6 +6,13 @@ import type { NormalizedInputEvent } from '../types/input';
  * All input handlers are no-ops.
  */
 export class IdleMode implements Mode {
+  mapInteractions(): { dragPan: boolean; doubleClickZoom: boolean } {
+    return {
+      dragPan: true,
+      doubleClickZoom: true,
+    };
+  }
+
   activate(): void {
     // No-op
   }

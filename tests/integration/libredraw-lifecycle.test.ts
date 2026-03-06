@@ -239,4 +239,28 @@ describe('LibreDraw lifecycle integration', () => {
 
     draw.destroy();
   });
+
+  it('should apply map interactions from mode declarations on mode changes', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), { toolbar: false });
+
+    vi.mocked(map.dragPan.enable).mockClear();
+    vi.mocked(map.dragPan.disable).mockClear();
+    vi.mocked(map.doubleClickZoom.enable).mockClear();
+    vi.mocked(map.doubleClickZoom.disable).mockClear();
+
+    draw.setMode('draw');
+    expect(map.dragPan.disable).toHaveBeenCalledTimes(1);
+    expect(map.doubleClickZoom.disable).toHaveBeenCalledTimes(1);
+
+    draw.setMode('select');
+    expect(map.dragPan.enable).toHaveBeenCalledTimes(1);
+    expect(map.doubleClickZoom.disable).toHaveBeenCalledTimes(2);
+
+    draw.setMode('idle');
+    expect(map.dragPan.enable).toHaveBeenCalledTimes(2);
+    expect(map.doubleClickZoom.enable).toHaveBeenCalledTimes(1);
+
+    draw.destroy();
+  });
 });

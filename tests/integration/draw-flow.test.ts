@@ -3,6 +3,7 @@ import { EventBus } from '../../src/core/EventBus';
 import { FeatureStore } from '../../src/core/FeatureStore';
 import { HistoryManager } from '../../src/core/HistoryManager';
 import { ModeManager } from '../../src/core/ModeManager';
+import type { ModeContext } from '../../src/core/ModeContext';
 import { IdleMode } from '../../src/modes/IdleMode';
 import { DrawMode } from '../../src/modes/DrawMode';
 import { SelectMode } from '../../src/modes/SelectMode';
@@ -31,39 +32,37 @@ describe('Draw Flow Integration', () => {
     const store = new FeatureStore();
     const history = new HistoryManager();
     const modeManager = new ModeManager();
-
-    const drawMode = new DrawMode({
-      addFeatureToStore: (f) => store.add(f),
-      pushToHistory: (a) => history.push(a),
-      emitEvent: (t, p) => eventBus.emit(t, p),
-      renderPreview: vi.fn(),
-      clearPreview: vi.fn(),
-      renderFeatures: vi.fn(),
+    const modeContext: ModeContext = {
+      store: {
+        add: (feature) => store.add(feature),
+        update: (id, feature) => store.update(id, feature),
+        remove: (id) => store.remove(id),
+        getById: (id) => store.getById(id),
+        getAll: () => store.getAll(),
+      },
+      history: {
+        push: (action) => history.push(action),
+      },
+      events: {
+        emit: (type, payload) => eventBus.emit(type, payload),
+      },
+      render: {
+        renderFeatures: vi.fn(),
+        renderPreview: vi.fn(),
+        clearPreview: vi.fn(),
+        renderVertices: vi.fn(),
+        clearVertices: vi.fn(),
+        setSelectedIds: vi.fn(),
+      },
       getScreenPoint: (lngLat) => ({
         x: lngLat.lng * 10,
         y: lngLat.lat * 10,
       }),
-    });
+      setDragPan: vi.fn(),
+    };
 
-    const selectMode = new SelectMode(
-      {
-        removeFeatureFromStore: (id) => store.remove(id),
-        pushToHistory: (a) => history.push(a),
-        emitEvent: (t, p) => eventBus.emit(t, p),
-        renderFeatures: vi.fn(),
-        getFeatureById: (id) => store.getById(id),
-        getAllFeatures: () => store.getAll(),
-        getScreenPoint: (lngLat) => ({
-          x: lngLat.lng * 10,
-          y: lngLat.lat * 10,
-        }),
-        updateFeatureInStore: (id, feature) => store.update(id, feature),
-        renderVertices: vi.fn(),
-        clearVertices: vi.fn(),
-        setDragPan: vi.fn(),
-      },
-      vi.fn(),
-    );
+    const drawMode = new DrawMode(modeContext);
+    const selectMode = new SelectMode(modeContext, vi.fn());
 
     modeManager.registerMode('idle', new IdleMode());
     modeManager.registerMode('draw', drawMode);

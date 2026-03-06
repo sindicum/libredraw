@@ -1,17 +1,13 @@
 import type { Mode } from './Mode';
 import type { NormalizedInputEvent } from '../types/input';
-import type {
-  LibreDrawFeature,
-  Position,
-  Action,
-} from '../types/features';
-import type { LibreDrawEventMap } from '../types/events';
+import type { LibreDrawFeature, Position } from '../types/features';
 import { CreateAction } from '../types/features';
 import {
   wouldNewVertexCauseIntersection,
   wouldClosingCauseIntersection,
 } from '../validation/intersection';
 import { cloneFeature } from '../utils/featureSnapshot';
+import type { ModeContext } from '../core/ModeContext';
 
 /**
  * Threshold in pixels: if a click is within this distance of the first
@@ -23,29 +19,6 @@ const CLOSE_THRESHOLD_PX = 10;
  * Minimum number of unique vertices required to form a valid polygon.
  */
 const MIN_VERTICES = 3;
-
-/**
- * Callbacks that DrawMode needs from the host application.
- */
-export interface DrawModeCallbacks {
-  /** Add a feature to the store and return it with its assigned ID. */
-  addFeatureToStore(feature: LibreDrawFeature): LibreDrawFeature;
-  /** Push an action to the history manager. */
-  pushToHistory(action: Action): void;
-  /** Emit an event through the event bus. */
-  emitEvent<K extends keyof LibreDrawEventMap>(
-    type: K,
-    payload: LibreDrawEventMap[K],
-  ): void;
-  /** Render a preview of the polygon being drawn. */
-  renderPreview(coordinates: Position[]): void;
-  /** Clear the drawing preview. */
-  clearPreview(): void;
-  /** Re-render all features. */
-  renderFeatures(): void;
-  /** Convert a geographic coordinate to a screen point. */
-  getScreenPoint(lngLat: { lng: number; lat: number }): { x: number; y: number };
-}
 
 /**
  * Drawing mode for creating new polygons.
@@ -60,10 +33,17 @@ export interface DrawModeCallbacks {
 export class DrawMode implements Mode {
   private vertices: Position[] = [];
   private isActive = false;
-  private callbacks: DrawModeCallbacks;
+  private context: ModeContext;
 
-  constructor(callbacks: DrawModeCallbacks) {
-    this.callbacks = callbacks;
+  constructor(context: ModeContext) {
+    this.context = context;
+  }
+
+  mapInteractions(): { dragPan: boolean; doubleClickZoom: boolean } {
+    return {
+      dragPan: false,
+      doubleClickZoom: false,
+    };
   }
 
   activate(): void {
@@ -74,7 +54,7 @@ export class DrawMode implements Mode {
   deactivate(): void {
     this.isActive = false;
     this.vertices = [];
-    this.callbacks.clearPreview();
+    this.context.render.clearPreview();
   }
 
   onPointerDown(event: NormalizedInputEvent): void {
@@ -85,7 +65,7 @@ export class DrawMode implements Mode {
     // Check if this click is close to the first vertex (closing the polygon)
     if (this.vertices.length >= MIN_VERTICES) {
       const firstVertex = this.vertices[0];
-      const firstScreenPt = this.callbacks.getScreenPoint({
+      const firstScreenPt = this.context.getScreenPoint({
         lng: firstVertex[0],
         lat: firstVertex[1],
       });
@@ -145,9 +125,9 @@ export class DrawMode implements Mode {
     if (this.vertices.length > 0) {
       this.vertices.pop();
       if (this.vertices.length === 0) {
-        this.callbacks.clearPreview();
+        this.context.render.clearPreview();
       } else {
-        this.callbacks.renderPreview(this.buildPreviewCoordinates());
+        this.context.render.renderPreview(this.buildPreviewCoordinates());
       }
     }
   }
@@ -184,7 +164,7 @@ export class DrawMode implements Mode {
   private updatePreview(event: NormalizedInputEvent): void {
     const cursorPos: Position = [event.lngLat.lng, event.lngLat.lat];
     const previewCoords = this.buildPreviewCoordinates(cursorPos);
-    this.callbacks.renderPreview(previewCoords);
+    this.context.render.renderPreview(previewCoords);
   }
 
   /**
@@ -209,15 +189,15 @@ export class DrawMode implements Mode {
       properties: {},
     };
 
-    const stored = this.callbacks.addFeatureToStore(feature);
+    const stored = this.context.store.add(feature);
     const action = new CreateAction(stored);
-    this.callbacks.pushToHistory(action);
-    this.callbacks.emitEvent('create', { feature: cloneFeature(stored) });
-    this.callbacks.renderFeatures();
+    this.context.history.push(action);
+    this.context.events.emit('create', { feature: cloneFeature(stored) });
+    this.context.render.renderFeatures();
 
     // Reset state for next drawing
     this.vertices = [];
-    this.callbacks.clearPreview();
+    this.context.render.clearPreview();
   }
 
   /**
@@ -225,6 +205,6 @@ export class DrawMode implements Mode {
    */
   private cancelDrawing(): void {
     this.vertices = [];
-    this.callbacks.clearPreview();
+    this.context.render.clearPreview();
   }
 }
