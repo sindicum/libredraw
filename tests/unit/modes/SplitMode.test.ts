@@ -192,7 +192,7 @@ describe('SplitMode', () => {
     expect(harness.mocks.clearPreview).toHaveBeenCalled();
   });
 
-  it('should keep selected target and return to first-point on invalid split', () => {
+  it('should emit splitfailed event and return to first-point on invalid split', () => {
     mode.activate();
     mode.onPointerDown(pointerEvent(5, 5)); // select target
     mode.onPointerDown(pointerEvent(20, 20)); // first split point
@@ -200,11 +200,16 @@ describe('SplitMode', () => {
 
     expect(harness.mocks.remove).not.toHaveBeenCalled();
     expect(harness.mocks.push).not.toHaveBeenCalled();
+    expect(harness.mocks.emit).toHaveBeenCalledWith(
+      'splitfailed',
+      expect.objectContaining({
+        reason: 'invalid-intersection-count',
+        featureId: 'f1',
+      }),
+    );
 
+    // Should return to first-point state (can set a new first point)
     harness.mocks.renderPreview.mockClear();
-    mode.onPointerMove(pointerEvent(40, 40));
-    expect(harness.mocks.renderPreview).not.toHaveBeenCalled();
-
     mode.onPointerDown(pointerEvent(6, 6));
     expect(harness.mocks.renderPreview).toHaveBeenCalledWith([
       [6, 6],

@@ -7,6 +7,7 @@ import { SplitAction } from '../types/features';
 import type { NormalizedInputEvent } from '../types/input';
 import { cloneFeature } from '../utils/featureSnapshot';
 import { splitPolygon } from '../utils/splitPolygon';
+import type { SplitResult } from '../utils/splitPolygon';
 
 type SplitState = 'idle' | 'first-point' | 'second-point';
 
@@ -86,6 +87,7 @@ export class SplitMode implements Mode {
     this.resetInteractionState(true);
   }
 
+  /** Perform a hit-test at the pointer position and select the target polygon. */
   private handleTargetSelection(event: NormalizedInputEvent): void {
     const hit = this.hitTest([event.lngLat.lng, event.lngLat.lat]);
     if (!hit) {
@@ -100,6 +102,7 @@ export class SplitMode implements Mode {
     this.context.render.clearPreview();
   }
 
+  /** Execute the split operation using the stored first point and the given second point. */
   private executeSplit(lineEnd: Position): void {
     if (!this.selectedFeatureId || !this.lineStart) {
       this.resetInteractionState(true);
@@ -112,15 +115,19 @@ export class SplitMode implements Mode {
       return;
     }
 
-    const splitResult = splitPolygon(feature, this.lineStart, lineEnd);
-    if (!splitResult) {
+    const splitResult: SplitResult = splitPolygon(feature, this.lineStart, lineEnd);
+    if (splitResult.type === 'error') {
+      this.context.events.emit('splitfailed', {
+        reason: splitResult.reason,
+        featureId: feature.id,
+      });
       this.state = 'first-point';
       this.lineStart = null;
       this.context.render.clearPreview();
       return;
     }
 
-    const [featureA, featureB] = splitResult;
+    const [featureA, featureB] = splitResult.features;
 
     this.context.store.remove(feature.id);
     this.context.store.add(featureA);
@@ -141,6 +148,7 @@ export class SplitMode implements Mode {
     this.lineStart = null;
   }
 
+  /** Find the topmost polygon that contains the given position. */
   private hitTest(position: Position): LibreDrawFeature | undefined {
     const clickPoint = turfPoint([position[0], position[1]]);
     const features = this.context.store.getAll();
@@ -154,6 +162,7 @@ export class SplitMode implements Mode {
     return undefined;
   }
 
+  /** Highlight a feature as the split target and notify listeners. */
   private selectFeature(id: string): void {
     this.selectedFeatureId = id;
     this.context.render.setSelectedIds([id]);
@@ -161,6 +170,7 @@ export class SplitMode implements Mode {
     this.context.render.renderFeatures();
   }
 
+  /** Remove the current selection highlight and notify listeners. */
   private clearSelection(): void {
     if (!this.selectedFeatureId) return;
     this.selectedFeatureId = null;
@@ -169,6 +179,7 @@ export class SplitMode implements Mode {
     this.context.render.renderFeatures();
   }
 
+  /** Reset the mode to idle state, optionally clearing the active selection. */
   private resetInteractionState(clearSelection: boolean): void {
     this.state = 'idle';
     this.lineStart = null;

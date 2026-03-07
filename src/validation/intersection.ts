@@ -1,6 +1,6 @@
 import type { Position } from '../types/features';
 
-const EPSILON = 1e-10;
+export const EPSILON = 1e-10;
 
 /**
  * Compute the orientation of triplet (p, q, r).

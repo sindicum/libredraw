@@ -563,6 +563,8 @@ export class LibreDraw {
    * draw.on('create', (e) => console.log('Created:', e.feature.id));
    * draw.on('update', (e) => console.log('Updated:', e.feature.id));
    * draw.on('delete', (e) => console.log('Deleted:', e.feature.id));
+   * draw.on('split', (e) => console.log('Split:', e.originalFeature.id));
+   * draw.on('splitfailed', (e) => console.log('Split failed:', e.reason));
    * draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
    * draw.on('modechange', (e) => console.log(`${e.previousMode} -> ${e.mode}`));
    * ```

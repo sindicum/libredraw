@@ -23,6 +23,7 @@ export type {
   UpdateEvent,
   DeleteEvent,
   SplitEvent,
+  SplitFailedEvent,
   SelectionChangeEvent,
   ModeChangeEvent,
   LibreDrawEventMap,

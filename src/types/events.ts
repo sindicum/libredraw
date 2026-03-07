@@ -32,6 +32,14 @@ export interface SplitEvent {
 }
 
 /**
+ * Event payload for a failed split operation.
+ */
+export interface SplitFailedEvent {
+  reason: import('../utils/splitPolygon').SplitFailReason;
+  featureId: string;
+}
+
+/**
  * Event payload for selection changes.
  */
 export interface SelectionChangeEvent {
@@ -54,6 +62,7 @@ export interface LibreDrawEventMap {
   update: UpdateEvent;
   delete: DeleteEvent;
   split: SplitEvent;
+  splitfailed: SplitFailedEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
 }

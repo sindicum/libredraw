@@ -18,6 +18,22 @@ function makeFeature(
   };
 }
 
+function makeFeatureWithHoles(
+  id: string,
+  outerRing: Position[],
+  holes: Position[][],
+): LibreDrawFeature {
+  return {
+    id,
+    type: 'Feature',
+    geometry: {
+      type: 'Polygon',
+      coordinates: [outerRing, ...holes],
+    },
+    properties: {},
+  };
+}
+
 function signedArea(ring: Position[]): number {
   let area = 0;
   for (let i = 0; i < ring.length - 1; i++) {
@@ -43,9 +59,10 @@ describe('splitPolygon', () => {
     ]);
 
     const result = splitPolygon(feature, [5, -5], [5, 15]);
-    expect(result).not.toBeNull();
+    expect(result.type).toBe('success');
 
-    const [a, b] = result!;
+    if (result.type !== 'success') return;
+    const [a, b] = result.features;
     const areaA = Math.abs(signedArea(a.geometry.coordinates[0]));
     const areaB = Math.abs(signedArea(b.geometry.coordinates[0]));
 
@@ -55,7 +72,7 @@ describe('splitPolygon', () => {
     expect(isClosed(b.geometry.coordinates[0])).toBe(true);
   });
 
-  it('should return null when split line does not intersect polygon', () => {
+  it('should return error when split line does not intersect polygon', () => {
     const feature = makeFeature('square', [
       [0, 0],
       [10, 0],
@@ -65,10 +82,10 @@ describe('splitPolygon', () => {
     ]);
 
     const result = splitPolygon(feature, [20, 20], [30, 30]);
-    expect(result).toBeNull();
+    expect(result).toEqual({ type: 'error', reason: 'invalid-intersection-count' });
   });
 
-  it('should return null when split line intersects polygon in more than two points', () => {
+  it('should return error when split line intersects polygon in more than two points', () => {
     const feature = makeFeature('concave', [
       [0, 0],
       [10, 0],
@@ -82,7 +99,7 @@ describe('splitPolygon', () => {
     ]);
 
     const result = splitPolygon(feature, [-1, 4], [11, 4]);
-    expect(result).toBeNull();
+    expect(result).toEqual({ type: 'error', reason: 'invalid-intersection-count' });
   });
 
   it('should allow split line passing through polygon vertices', () => {
@@ -95,9 +112,10 @@ describe('splitPolygon', () => {
     ]);
 
     const result = splitPolygon(feature, [0, 0], [10, 10]);
-    expect(result).not.toBeNull();
+    expect(result.type).toBe('success');
 
-    const [a, b] = result!;
+    if (result.type !== 'success') return;
+    const [a, b] = result.features;
     expect(Math.abs(signedArea(a.geometry.coordinates[0]))).toBeCloseTo(50, 8);
     expect(Math.abs(signedArea(b.geometry.coordinates[0]))).toBeCloseTo(50, 8);
   });
@@ -121,9 +139,10 @@ describe('splitPolygon', () => {
     );
 
     const result = splitPolygon(feature, [5, -5], [5, 15]);
-    expect(result).not.toBeNull();
+    expect(result.type).toBe('success');
 
-    const [a, b] = result!;
+    if (result.type !== 'success') return;
+    const [a, b] = result.features;
     expect(a.id).not.toBe('origin');
     expect(b.id).not.toBe('origin');
     expect(a.id).not.toBe(b.id);
@@ -146,10 +165,103 @@ describe('splitPolygon', () => {
     ]);
 
     const result = splitPolygon(feature, [5, -5], [5, 15]);
-    expect(result).not.toBeNull();
+    expect(result.type).toBe('success');
 
-    const [a, b] = result!;
+    if (result.type !== 'success') return;
+    const [a, b] = result.features;
     expect(signedArea(a.geometry.coordinates[0])).toBeGreaterThan(0);
     expect(signedArea(b.geometry.coordinates[0])).toBeGreaterThan(0);
+  });
+
+  it('should return error with reason "has-holes" for polygon with holes', () => {
+    const feature = makeFeatureWithHoles(
+      'with-hole',
+      [
+        [0, 0],
+        [20, 0],
+        [20, 20],
+        [0, 20],
+        [0, 0],
+      ],
+      [
+        [
+          [5, 5],
+          [5, 15],
+          [15, 15],
+          [15, 5],
+          [5, 5],
+        ],
+      ],
+    );
+
+    const result = splitPolygon(feature, [10, -5], [10, 25]);
+    expect(result).toEqual({ type: 'error', reason: 'has-holes' });
+  });
+
+  it('should return error with reason "same-points" when split points are identical', () => {
+    const feature = makeFeature('square', [
+      [0, 0],
+      [10, 0],
+      [10, 10],
+      [0, 10],
+      [0, 0],
+    ]);
+
+    const result = splitPolygon(feature, [5, 5], [5, 5]);
+    expect(result).toEqual({ type: 'error', reason: 'same-points' });
+  });
+
+  it('should successfully split a concave polygon with 2 intersection points', () => {
+    // L-shaped concave polygon
+    const feature = makeFeature('concave-L', [
+      [0, 0],
+      [10, 0],
+      [10, 5],
+      [5, 5],
+      [5, 10],
+      [0, 10],
+      [0, 0],
+    ]);
+
+    // Vertical split at x=2 crosses top and bottom edges
+    const result = splitPolygon(feature, [2, -1], [2, 11]);
+    expect(result.type).toBe('success');
+
+    if (result.type !== 'success') return;
+    const [a, b] = result.features;
+    const totalArea = Math.abs(signedArea(a.geometry.coordinates[0])) +
+      Math.abs(signedArea(b.geometry.coordinates[0]));
+    // Original L-shape area = 10*5 + 5*5 = 75
+    expect(totalArea).toBeCloseTo(75, 8);
+  });
+
+  it('should return specific reason in SplitResult for each failure case', () => {
+    const square = makeFeature('sq', [
+      [0, 0],
+      [10, 0],
+      [10, 10],
+      [0, 10],
+      [0, 0],
+    ]);
+
+    // Same points
+    const r1 = splitPolygon(square, [5, 5], [5, 5]);
+    expect(r1.type).toBe('error');
+    if (r1.type === 'error') expect(r1.reason).toBe('same-points');
+
+    // No intersection
+    const r2 = splitPolygon(square, [20, 20], [30, 30]);
+    expect(r2.type).toBe('error');
+    if (r2.type === 'error') expect(r2.reason).toBe('invalid-intersection-count');
+
+    // Polygon with hole
+    const withHole = makeFeatureWithHoles(
+      'h',
+      [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
+      [[[2, 2], [2, 8], [8, 8], [8, 2], [2, 2]]],
+    );
+    const r3 = splitPolygon(withHole, [5, -1], [5, 11]);
+    expect(r3.type).toBe('error');
+    if (r3.type === 'error') expect(r3.reason).toBe('has-holes');
   });
 });
