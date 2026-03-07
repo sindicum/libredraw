@@ -164,6 +164,7 @@ export class VertexEditor {
   private startDrag(
     feature: LibreDrawFeature,
     vertexIndex: number,
+    // Midpoint insertion passes the pre-insert snapshot so undo restores original shape.
     startFeatureSnapshot: LibreDrawFeature = cloneFeature(feature),
   ): void {
     this.dragging = true;

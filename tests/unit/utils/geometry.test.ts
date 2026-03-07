@@ -83,6 +83,27 @@ describe('geometry utils', () => {
         [0, 0],
       ]);
     });
+
+    it('should update closing point and sync first vertex', () => {
+      const feature = makeFeature('f1');
+
+      const moved = moveVertex(feature, 4, [6, 7]);
+
+      expect(moved.geometry.coordinates[0]).toEqual([
+        [6, 7],
+        [10, 0],
+        [10, 10],
+        [0, 10],
+        [6, 7],
+      ]);
+      expect(feature.geometry.coordinates[0]).toEqual([
+        [0, 0],
+        [10, 0],
+        [10, 10],
+        [0, 10],
+        [0, 0],
+      ]);
+    });
   });
 
   describe('movePolygon', () => {
@@ -129,6 +150,19 @@ describe('geometry utils', () => {
         [10, 10],
         [0, 10],
         [0, 0],
+      ]);
+    });
+
+    it('should keep ring closed when removing first vertex', () => {
+      const feature = makeFeature('f1');
+
+      const updated = removeVertex(feature, 0);
+
+      expect(updated.geometry.coordinates[0]).toEqual([
+        [10, 0],
+        [10, 10],
+        [0, 10],
+        [10, 0],
       ]);
     });
   });
