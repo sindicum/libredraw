@@ -1,3 +1,5 @@
+import type { PartialStyleConfig } from './style';
+
 /**
  * Position of the toolbar control on the map.
  */
@@ -34,4 +36,6 @@ export interface LibreDrawOptions {
   toolbar?: boolean | ToolbarOptions;
   /** Maximum number of undo/redo history entries. Defaults to 100. */
   historyLimit?: number;
+  /** Partial style overrides for map layer rendering. */
+  style?: PartialStyleConfig;
 }

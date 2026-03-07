@@ -120,6 +120,7 @@ Options for creating a LibreDraw instance.
 interface LibreDrawOptions {
   toolbar?: boolean | ToolbarOptions;
   historyLimit?: number;
+  style?: PartialStyleConfig;
 }
 ```
 
@@ -127,6 +128,7 @@ interface LibreDrawOptions {
 |----------|------|---------|-------------|
 | `toolbar` | `boolean \| ToolbarOptions` | `true` | Whether to show the toolbar, or toolbar configuration. Set to `false` for headless mode. |
 | `historyLimit` | `number` | `100` | Maximum number of undo/redo history entries |
+| `style` | `PartialStyleConfig` | `default style` | Partial overrides for map layer styling (fill/outline/vertices/preview/edit handles). |
 
 ---
 

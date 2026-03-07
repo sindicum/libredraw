@@ -21,7 +21,7 @@ Initializes all internal modules and sets up map integration. The instance is re
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `map` | `maplibregl.Map` | Yes | The MapLibre GL JS map instance to draw on |
-| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No | Configuration options. Defaults to toolbar enabled and 100-action history limit |
+| `options` | [`LibreDrawOptions`](/api/types#libredrawoptions) | No | Configuration options. Defaults to toolbar enabled and 100-action history limit (with built-in default layer style) |
 
 **Example:**
 
@@ -46,6 +46,10 @@ const draw = new LibreDraw(map, {
     controls: { draw: true, select: true, delete: true, undo: true, redo: true },
   },
   historyLimit: 50,
+  style: {
+    fill: { color: '#1f78b4', selectedColor: '#e76f51' },
+    preview: { dasharray: [4, 1] },
+  },
 });
 
 // Headless mode (no toolbar)

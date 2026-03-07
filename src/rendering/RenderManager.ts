@@ -1,5 +1,7 @@
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { LibreDrawFeature, Position } from '../types/features';
+import type { PartialStyleConfig, StyleConfig } from '../types/style';
+import { mergeStyleConfig } from '../types/style';
 import { SourceManager, SOURCE_IDS } from './SourceManager';
 
 /**
@@ -12,33 +14,6 @@ export const LAYER_IDS = {
   PREVIEW: 'libre-draw-preview',
   EDIT_VERTICES: 'libre-draw-edit-vertices',
   EDIT_MIDPOINTS: 'libre-draw-edit-midpoints',
-} as const;
-
-/**
- * Default colors used by the rendering layers.
- */
-const COLORS = {
-  FILL: '#3bb2d0',
-  FILL_OPACITY: 0.2,
-  FILL_SELECTED: '#fbb03b',
-  FILL_SELECTED_OPACITY: 0.4,
-  OUTLINE: '#3bb2d0',
-  OUTLINE_WIDTH: 2,
-  OUTLINE_SELECTED: '#fbb03b',
-  VERTEX_COLOR: '#ffffff',
-  VERTEX_STROKE: '#3bb2d0',
-  VERTEX_RADIUS: 4,
-  PREVIEW_FILL: '#3bb2d0',
-  PREVIEW_FILL_OPACITY: 0.1,
-  PREVIEW_OUTLINE: '#3bb2d0',
-  PREVIEW_OUTLINE_DASH: [2, 2] as number[],
-  EDIT_VERTEX_COLOR: '#ffffff',
-  EDIT_VERTEX_STROKE: '#3bb2d0',
-  EDIT_VERTEX_RADIUS: 5,
-  EDIT_VERTEX_STROKE_WIDTH: 2,
-  MIDPOINT_COLOR: '#3bb2d0',
-  MIDPOINT_OPACITY: 0.5,
-  MIDPOINT_RADIUS: 3,
 } as const;
 
 /**
@@ -60,10 +35,16 @@ export class RenderManager {
   private pendingRender = false;
   private pendingFeatures: LibreDrawFeature[] | null = null;
   private initialized = false;
+  private style: StyleConfig;
 
-  constructor(map: MaplibreMap, sourceManager: SourceManager) {
+  constructor(
+    map: MaplibreMap,
+    sourceManager: SourceManager,
+    style?: PartialStyleConfig,
+  ) {
     this.map = map;
     this.sourceManager = sourceManager;
+    this.style = mergeStyleConfig(style);
   }
 
   /**
@@ -96,14 +77,14 @@ export class RenderManager {
           'fill-color': [
             'case',
             ['boolean', ['get', '_selected'], false],
-            COLORS.FILL_SELECTED,
-            COLORS.FILL,
+            this.style.fill.selectedColor,
+            this.style.fill.color,
           ],
           'fill-opacity': [
             'case',
             ['boolean', ['get', '_selected'], false],
-            COLORS.FILL_SELECTED_OPACITY,
-            COLORS.FILL_OPACITY,
+            this.style.fill.selectedOpacity,
+            this.style.fill.opacity,
           ],
         },
       });
@@ -119,10 +100,10 @@ export class RenderManager {
           'line-color': [
             'case',
             ['boolean', ['get', '_selected'], false],
-            COLORS.OUTLINE_SELECTED,
-            COLORS.OUTLINE,
+            this.style.outline.selectedColor,
+            this.style.outline.color,
           ],
-          'line-width': COLORS.OUTLINE_WIDTH,
+          'line-width': this.style.outline.width,
         },
       });
     }
@@ -135,10 +116,10 @@ export class RenderManager {
         source: SOURCE_IDS.FEATURES,
         filter: ['==', '$type', 'Point'],
         paint: {
-          'circle-radius': COLORS.VERTEX_RADIUS,
-          'circle-color': COLORS.VERTEX_COLOR,
-          'circle-stroke-color': COLORS.VERTEX_STROKE,
-          'circle-stroke-width': 2,
+          'circle-radius': this.style.vertex.radius,
+          'circle-color': this.style.vertex.color,
+          'circle-stroke-color': this.style.vertex.strokeColor,
+          'circle-stroke-width': this.style.vertex.strokeWidth,
         },
       });
     }
@@ -150,9 +131,9 @@ export class RenderManager {
         type: 'line',
         source: SOURCE_IDS.PREVIEW,
         paint: {
-          'line-color': COLORS.PREVIEW_OUTLINE,
-          'line-width': 2,
-          'line-dasharray': COLORS.PREVIEW_OUTLINE_DASH,
+          'line-color': this.style.preview.color,
+          'line-width': this.style.preview.width,
+          'line-dasharray': this.style.preview.dasharray,
         },
       });
     }
@@ -165,9 +146,9 @@ export class RenderManager {
         source: SOURCE_IDS.EDIT_VERTICES,
         filter: ['==', ['get', '_type'], 'midpoint'],
         paint: {
-          'circle-radius': COLORS.MIDPOINT_RADIUS,
-          'circle-color': COLORS.MIDPOINT_COLOR,
-          'circle-opacity': COLORS.MIDPOINT_OPACITY,
+          'circle-radius': this.style.midpoint.radius,
+          'circle-color': this.style.midpoint.color,
+          'circle-opacity': this.style.midpoint.opacity,
         },
       });
     }
@@ -184,22 +165,22 @@ export class RenderManager {
           'circle-radius': [
             'case',
             ['boolean', ['get', '_highlighted'], false],
-            7,
-            COLORS.EDIT_VERTEX_RADIUS,
+            this.style.editVertex.highlightedRadius,
+            this.style.editVertex.radius,
           ],
           'circle-color': [
             'case',
             ['boolean', ['get', '_highlighted'], false],
-            '#ff4444',
-            COLORS.EDIT_VERTEX_COLOR,
+            this.style.editVertex.highlightedColor,
+            this.style.editVertex.color,
           ],
           'circle-stroke-color': [
             'case',
             ['boolean', ['get', '_highlighted'], false],
-            '#cc0000',
-            COLORS.EDIT_VERTEX_STROKE,
+            this.style.editVertex.highlightedStrokeColor,
+            this.style.editVertex.strokeColor,
           ],
-          'circle-stroke-width': COLORS.EDIT_VERTEX_STROKE_WIDTH,
+          'circle-stroke-width': this.style.editVertex.strokeWidth,
         },
       });
     }

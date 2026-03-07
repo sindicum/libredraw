@@ -263,4 +263,55 @@ describe('LibreDraw lifecycle integration', () => {
 
     draw.destroy();
   });
+
+  it('should apply custom style options to layer paint definitions', () => {
+    const map = new FakeMap();
+    const draw = new LibreDraw(map.asMap(), {
+      toolbar: false,
+      style: {
+        fill: {
+          color: '#123456',
+          selectedColor: '#abcdef',
+        },
+        preview: {
+          dasharray: [4, 1],
+          width: 3,
+        },
+        vertex: {
+          strokeWidth: 4,
+        },
+        editVertex: {
+          color: '#00aa00',
+          highlightedColor: '#ff00ff',
+        },
+      },
+    });
+
+    const fillLayer = map.getLayer(LAYER_IDS.FILL) as {
+      paint: Record<string, unknown>;
+    };
+    const fillColorExpr = fillLayer.paint['fill-color'] as unknown[];
+    expect(fillColorExpr[2]).toBe('#abcdef');
+    expect(fillColorExpr[3]).toBe('#123456');
+
+    const previewLayer = map.getLayer(LAYER_IDS.PREVIEW) as {
+      paint: Record<string, unknown>;
+    };
+    expect(previewLayer.paint['line-dasharray']).toEqual([4, 1]);
+    expect(previewLayer.paint['line-width']).toBe(3);
+
+    const verticesLayer = map.getLayer(LAYER_IDS.VERTICES) as {
+      paint: Record<string, unknown>;
+    };
+    expect(verticesLayer.paint['circle-stroke-width']).toBe(4);
+
+    const editVerticesLayer = map.getLayer(LAYER_IDS.EDIT_VERTICES) as {
+      paint: Record<string, unknown>;
+    };
+    const editColorExpr = editVerticesLayer.paint['circle-color'] as unknown[];
+    expect(editColorExpr[2]).toBe('#ff00ff');
+    expect(editColorExpr[3]).toBe('#00aa00');
+
+    draw.destroy();
+  });
 });

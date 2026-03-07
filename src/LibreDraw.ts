@@ -98,7 +98,11 @@ export class LibreDraw {
 
     // Rendering
     this.sourceManager = new SourceManager(map);
-    this.renderManager = new RenderManager(map, this.sourceManager);
+    this.renderManager = new RenderManager(
+      map,
+      this.sourceManager,
+      options.style,
+    );
 
     // Mode setup
     const modeContext: ModeContext = {

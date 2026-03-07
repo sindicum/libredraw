@@ -26,6 +26,8 @@ export type {
   ToolbarOptions,
   ToolbarPosition,
   ToolbarControls,
+  StyleConfig,
+  PartialStyleConfig,
 } from './types';
 
 export type {
@@ -38,3 +40,9 @@ export type { ModeName } from './types';
 
 // Error class
 export { LibreDrawError } from './core/errors';
+
+// Style helpers
+export {
+  DEFAULT_STYLE_CONFIG,
+  mergeStyleConfig,
+} from './types';
