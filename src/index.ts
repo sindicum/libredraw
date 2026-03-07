@@ -17,6 +17,7 @@ export type {
   CreateEvent,
   UpdateEvent,
   DeleteEvent,
+  SplitEvent,
   SelectionChangeEvent,
   ModeChangeEvent,
 } from './types';
@@ -46,3 +47,6 @@ export {
   DEFAULT_STYLE_CONFIG,
   mergeStyleConfig,
 } from './types';
+
+// Split history action
+export { SplitAction } from './types';

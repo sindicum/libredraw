@@ -18,6 +18,7 @@ import { validateGeoJSON, validateFeature } from './validation/geojson';
 import { IdleMode } from './modes/IdleMode';
 import { DrawMode } from './modes/DrawMode';
 import { SelectMode } from './modes/SelectMode';
+import { SplitMode } from './modes/SplitMode';
 import type { MapInteractionConfig } from './modes/Mode';
 import { InputHandler } from './input/InputHandler';
 import { SourceManager } from './rendering/SourceManager';
@@ -146,11 +147,13 @@ export class LibreDraw {
 
     const drawMode = new DrawMode(modeContext);
     this.selectMode = new SelectMode(modeContext);
+    const splitMode = new SplitMode(modeContext);
 
     // Register modes
     this.modeManager.registerMode('idle', new IdleMode());
     this.modeManager.registerMode('draw', drawMode);
     this.modeManager.registerMode('select', this.selectMode);
+    this.modeManager.registerMode('split', splitMode);
 
     // Mode change event
     this.modeManager.setOnModeChange((mode, previousMode) => {
@@ -667,6 +670,10 @@ export class LibreDraw {
           this.modeManager.setMode(
             current === 'select' ? 'idle' : 'select',
           );
+        },
+        onSplitClick: () => {
+          const current = this.modeManager.getMode();
+          this.modeManager.setMode(current === 'split' ? 'idle' : 'split');
         },
         onDeleteClick: () => {
           if (this.modeManager.getMode() === 'select') {

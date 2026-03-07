@@ -3,6 +3,7 @@ import type { ToolbarOptions, ToolbarControls } from '../types/options';
 import { ToolbarButton } from './ToolbarButton';
 import { drawIcon } from './icons/draw';
 import { selectIcon } from './icons/select';
+import { splitIcon } from './icons/split';
 import { deleteIcon } from './icons/delete';
 import { undoIcon } from './icons/undo';
 import { redoIcon } from './icons/redo';
@@ -13,6 +14,7 @@ import { redoIcon } from './icons/redo';
 const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   draw: true,
   select: true,
+  split: true,
   delete: true,
   undo: true,
   redo: true,
@@ -24,6 +26,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
 export interface ToolbarCallbacks {
   onDrawClick(): void;
   onSelectClick(): void;
+  onSplitClick(): void;
   onDeleteClick(): void;
   onUndoClick(): void;
   onRedoClick(): void;
@@ -63,17 +66,21 @@ export class Toolbar {
 
   /**
    * Update the active mode displayed in the toolbar.
-   * @param mode - The active mode name ('idle', 'draw', 'select').
+   * @param mode - The active mode name ('idle', 'draw', 'select', 'split').
    */
   setActiveMode(mode: string): void {
     const drawBtn = this.buttons.get('draw');
     const selectBtn = this.buttons.get('select');
+    const splitBtn = this.buttons.get('split');
 
     if (drawBtn) {
       drawBtn.setActive(mode === 'draw');
     }
     if (selectBtn) {
       selectBtn.setActive(mode === 'select');
+    }
+    if (splitBtn) {
+      splitBtn.setActive(mode === 'split');
     }
   }
 
@@ -123,6 +130,12 @@ export class Toolbar {
     if (controls.select) {
       this.addButton('select', selectIcon, 'Select feature', () => {
         this.callbacks.onSelectClick();
+      }, true);
+    }
+
+    if (controls.split) {
+      this.addButton('split', splitIcon, 'Split feature', () => {
+        this.callbacks.onSplitClick();
       }, true);
     }
 

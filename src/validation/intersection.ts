@@ -1,12 +1,14 @@
 import type { Position } from '../types/features';
 
+const EPSILON = 1e-10;
+
 /**
  * Compute the orientation of triplet (p, q, r).
  * @returns 0 if collinear, 1 if clockwise, 2 if counter-clockwise.
  */
 function orientation(p: Position, q: Position, r: Position): number {
   const val = (q[1] - p[1]) * (r[0] - q[0]) - (q[0] - p[0]) * (r[1] - q[1]);
-  if (Math.abs(val) < 1e-10) return 0; // collinear
+  if (Math.abs(val) < EPSILON) return 0; // collinear
   return val > 0 ? 1 : 2;
 }
 
@@ -26,7 +28,41 @@ function onSegment(p: Position, q: Position, r: Position): boolean {
  * Check if two positions are approximately equal.
  */
 function posEqual(a: Position, b: Position): boolean {
-  return Math.abs(a[0] - b[0]) < 1e-10 && Math.abs(a[1] - b[1]) < 1e-10;
+  return Math.abs(a[0] - b[0]) < EPSILON && Math.abs(a[1] - b[1]) < EPSILON;
+}
+
+/**
+ * Compute the intersection point of two line segments.
+ * Returns null if they are parallel/collinear or do not intersect within segment bounds.
+ */
+export function computeIntersectionPoint(
+  p1: Position,
+  p2: Position,
+  p3: Position,
+  p4: Position,
+): Position | null {
+  const rX = p2[0] - p1[0];
+  const rY = p2[1] - p1[1];
+  const sX = p4[0] - p3[0];
+  const sY = p4[1] - p3[1];
+
+  const denom = rX * sY - rY * sX;
+  if (Math.abs(denom) < EPSILON) {
+    return null;
+  }
+
+  const qmpX = p3[0] - p1[0];
+  const qmpY = p3[1] - p1[1];
+
+  const t = (qmpX * sY - qmpY * sX) / denom;
+  const u = (qmpX * rY - qmpY * rX) / denom;
+
+  if (t < -EPSILON || t > 1 + EPSILON || u < -EPSILON || u > 1 + EPSILON) {
+    return null;
+  }
+
+  const clampedT = Math.max(0, Math.min(1, t));
+  return [p1[0] + clampedT * rX, p1[1] + clampedT * rY];
 }
 
 /**

@@ -41,7 +41,7 @@ export interface FeatureCollection {
 /**
  * The type of history action.
  */
-export type ActionType = 'create' | 'update' | 'delete';
+export type ActionType = 'create' | 'update' | 'delete' | 'split';
 
 /**
  * A reversible action that can be applied and reverted on a FeatureStore.
@@ -128,5 +128,37 @@ export class DeleteAction implements Action {
 
   revert(store: FeatureStoreInterface): void {
     store.add(this.feature);
+  }
+}
+
+/**
+ * Action that represents splitting one feature into two features.
+ */
+export class SplitAction implements Action {
+  public readonly type: ActionType = 'split';
+  public readonly originalFeature: LibreDrawFeature;
+  public readonly featureA: LibreDrawFeature;
+  public readonly featureB: LibreDrawFeature;
+
+  constructor(
+    originalFeature: LibreDrawFeature,
+    featureA: LibreDrawFeature,
+    featureB: LibreDrawFeature,
+  ) {
+    this.originalFeature = cloneFeature(originalFeature);
+    this.featureA = cloneFeature(featureA);
+    this.featureB = cloneFeature(featureB);
+  }
+
+  apply(store: FeatureStoreInterface): void {
+    store.remove(this.originalFeature.id);
+    store.add(this.featureA);
+    store.add(this.featureB);
+  }
+
+  revert(store: FeatureStoreInterface): void {
+    store.remove(this.featureA.id);
+    store.remove(this.featureB.id);
+    store.add(this.originalFeature);
   }
 }

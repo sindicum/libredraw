@@ -24,6 +24,14 @@ export interface DeleteEvent {
 }
 
 /**
+ * Event payload for split operation.
+ */
+export interface SplitEvent {
+  originalFeature: LibreDrawFeature;
+  features: [LibreDrawFeature, LibreDrawFeature];
+}
+
+/**
  * Event payload for selection changes.
  */
 export interface SelectionChangeEvent {
@@ -45,6 +53,7 @@ export interface LibreDrawEventMap {
   create: CreateEvent;
   update: UpdateEvent;
   delete: DeleteEvent;
+  split: SplitEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   segmentsIntersect,
+  computeIntersectionPoint,
   hasRingSelfIntersection,
   wouldNewVertexCauseIntersection,
   wouldClosingCauseIntersection,
@@ -44,6 +45,32 @@ describe('segmentsIntersect', () => {
   it('should detect T-shaped intersection', () => {
     // Horizontal segment and vertical segment crossing through it
     expect(segmentsIntersect([0, 5], [10, 5], [5, 0], [5, 10])).toBe(true);
+  });
+});
+
+describe('computeIntersectionPoint', () => {
+  it('should return intersection point for crossing segments', () => {
+    expect(
+      computeIntersectionPoint([0, 0], [10, 10], [0, 10], [10, 0]),
+    ).toEqual([5, 5]);
+  });
+
+  it('should return null for parallel segments', () => {
+    expect(
+      computeIntersectionPoint([0, 0], [10, 0], [0, 1], [10, 1]),
+    ).toBeNull();
+  });
+
+  it('should return null for collinear segments', () => {
+    expect(
+      computeIntersectionPoint([0, 0], [10, 0], [5, 0], [15, 0]),
+    ).toBeNull();
+  });
+
+  it('should return null when line intersection is outside segment bounds', () => {
+    expect(
+      computeIntersectionPoint([0, 0], [1, 1], [2, 0], [2, 10]),
+    ).toBeNull();
   });
 });
 

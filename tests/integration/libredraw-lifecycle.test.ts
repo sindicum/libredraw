@@ -257,6 +257,10 @@ describe('LibreDraw lifecycle integration', () => {
     expect(map.dragPan.enable).toHaveBeenCalledTimes(1);
     expect(map.doubleClickZoom.disable).toHaveBeenCalledTimes(2);
 
+    draw.setMode('split');
+    expect(map.dragPan.disable).toHaveBeenCalledTimes(2);
+    expect(map.doubleClickZoom.disable).toHaveBeenCalledTimes(3);
+
     draw.setMode('idle');
     expect(map.dragPan.enable).toHaveBeenCalledTimes(2);
     expect(map.doubleClickZoom.enable).toHaveBeenCalledTimes(1);

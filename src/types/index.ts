@@ -15,12 +15,14 @@ export {
   CreateAction,
   UpdateAction,
   DeleteAction,
+  SplitAction,
 } from './features';
 
 export type {
   CreateEvent,
   UpdateEvent,
   DeleteEvent,
+  SplitEvent,
   SelectionChangeEvent,
   ModeChangeEvent,
   LibreDrawEventMap,
