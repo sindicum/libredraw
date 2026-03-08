@@ -27,7 +27,7 @@ const map = new maplibregl.Map({
 const draw = new LibreDraw(map);
 ```
 
-That's it! A toolbar with draw, select, delete, undo, and redo buttons appears on the map. Click the draw button to start creating polygons.
+That's it! A toolbar with draw, select, split, setback, delete, undo, and redo buttons appears on the map. Click the draw button to start creating polygons.
 
 > **Note:** LibreDraw does not require a separate CSS import. All styles (toolbar, map layers) are applied programmatically via JavaScript. Only `maplibre-gl.css` is needed for the base map.
 
@@ -44,6 +44,8 @@ const draw = new LibreDraw(map, {
     controls: {
       draw: true,
       select: true,
+      split: true,
+      setback: true,
       delete: true,
       undo: true,
       redo: true,
@@ -80,6 +82,14 @@ draw.on('update', (e) => {
 
 draw.on('delete', (e) => {
   console.log('Polygon deleted:', e.feature);
+});
+
+draw.on('split', (e) => {
+  console.log('Polygon split:', e.originalFeature.id, '->', e.features.map(f => f.id));
+});
+
+draw.on('setback', (e) => {
+  console.log('Setback applied:', e.originalFeature.id, 'edge:', e.edgeIndex, 'distance:', e.distance);
 });
 
 draw.on('selectionchange', (e) => {
@@ -149,6 +159,6 @@ draw.destroy();
 
 ## Next Steps
 
-- Learn about [Modes](/guide/modes) (Idle, Draw, Select)
+- Learn about [Modes](/guide/modes) (Idle, Draw, Select, Split, Setback)
 - See the full [API Reference](/api/)
 - Try the [Live Demo](/examples/)
