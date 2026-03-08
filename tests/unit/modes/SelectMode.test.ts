@@ -121,12 +121,15 @@ function createModeContext(callbacks: SelectModeMocks): ModeContext {
       renderFeatures: callbacks.renderFeatures,
       renderPreview: vi.fn(),
       clearPreview: vi.fn(),
+      renderEdgeHighlight: vi.fn(),
+      clearEdgeHighlight: vi.fn(),
       renderVertices: callbacks.renderVertices,
       clearVertices: callbacks.clearVertices,
       setSelectedIds: vi.fn(),
     },
     getScreenPoint: callbacks.getScreenPoint,
     setDragPan: callbacks.setDragPan,
+    getSetbackDistance: () => 10,
   };
 }
 

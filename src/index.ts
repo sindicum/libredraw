@@ -19,6 +19,9 @@ export type {
   DeleteEvent,
   SplitEvent,
   SplitFailedEvent,
+  SetbackEvent,
+  SetbackFailedEvent,
+  SetbackFailReason,
   SelectionChangeEvent,
   ModeChangeEvent,
 } from './types';
@@ -51,3 +54,6 @@ export {
 
 // Split history action
 export { SplitAction } from './types';
+
+// Setback history action
+export { SetbackAction } from './types';

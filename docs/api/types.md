@@ -172,6 +172,8 @@ Configuration for which toolbar controls to display.
 interface ToolbarControls {
   draw?: boolean;
   select?: boolean;
+  split?: boolean;
+  setback?: boolean;
   delete?: boolean;
   undo?: boolean;
   redo?: boolean;
@@ -182,6 +184,8 @@ interface ToolbarControls {
 |----------|------|---------|-------------|
 | `draw` | `boolean` | `true` | Show draw mode toggle button |
 | `select` | `boolean` | `true` | Show select mode toggle button |
+| `split` | `boolean` | `true` | Show split mode toggle button |
+| `setback` | `boolean` | `true` | Show setback mode toggle button and distance input |
 | `delete` | `boolean` | `true` | Show delete button |
 | `undo` | `boolean` | `true` | Show undo button |
 | `redo` | `boolean` | `true` | Show redo button |
@@ -195,7 +199,7 @@ interface ToolbarControls {
 The available drawing mode names.
 
 ```ts
-type ModeName = 'idle' | 'draw' | 'select';
+type ModeName = 'idle' | 'draw' | 'select' | 'split' | 'setback';
 ```
 
 | Value | Description |
@@ -203,6 +207,8 @@ type ModeName = 'idle' | 'draw' | 'select';
 | `'idle'` | No drawing interaction. Map behaves normally. |
 | `'draw'` | Create polygons by clicking/tapping vertices. |
 | `'select'` | Select and edit existing polygons. |
+| `'split'` | Split a polygon into two polygons with a two-point line. |
+| `'setback'` | Apply inward edge setback with distance input and preview. |
 
 ---
 
@@ -213,7 +219,7 @@ type ModeName = 'idle' | 'draw' | 'select';
 The type of history action.
 
 ```ts
-type ActionType = 'create' | 'update' | 'delete';
+type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback';
 ```
 
 ---

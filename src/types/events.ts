@@ -39,6 +39,28 @@ export interface SplitFailedEvent {
   featureId: string;
 }
 
+export type SetbackFailReason =
+  | 'has-holes'
+  | 'invalid-split';
+
+/**
+ * Event payload for successful setback operation.
+ */
+export interface SetbackEvent {
+  originalFeature: LibreDrawFeature;
+  feature: LibreDrawFeature;
+  edgeIndex: number;
+  distance: number;
+}
+
+/**
+ * Event payload for failed setback operation.
+ */
+export interface SetbackFailedEvent {
+  reason: SetbackFailReason;
+  featureId: string;
+}
+
 /**
  * Event payload for selection changes.
  */
@@ -63,6 +85,8 @@ export interface LibreDrawEventMap {
   delete: DeleteEvent;
   split: SplitEvent;
   splitfailed: SplitFailedEvent;
+  setback: SetbackEvent;
+  setbackfailed: SetbackFailedEvent;
   selectionchange: SelectionChangeEvent;
   modechange: ModeChangeEvent;
 }

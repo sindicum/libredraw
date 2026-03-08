@@ -4,9 +4,11 @@ import { ToolbarButton } from './ToolbarButton';
 import { drawIcon } from './icons/draw';
 import { selectIcon } from './icons/select';
 import { splitIcon } from './icons/split';
+import { setbackIcon } from './icons/setback';
 import { deleteIcon } from './icons/delete';
 import { undoIcon } from './icons/undo';
 import { redoIcon } from './icons/redo';
+import { SetbackInput } from './SetbackInput';
 
 /**
  * Default toolbar control visibility.
@@ -15,6 +17,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   draw: true,
   select: true,
   split: true,
+  setback: true,
   delete: true,
   undo: true,
   redo: true,
@@ -27,6 +30,9 @@ export interface ToolbarCallbacks {
   onDrawClick(): void;
   onSelectClick(): void;
   onSplitClick(): void;
+  onSetbackClick(): void;
+  onSetbackExecute(distance: number): void;
+  onSetbackDistanceChange(distance: number): void;
   onDeleteClick(): void;
   onUndoClick(): void;
   onRedoClick(): void;
@@ -44,6 +50,7 @@ export class Toolbar {
   private map: MaplibreMap;
   private container: HTMLDivElement;
   private buttons: Map<string, ToolbarButton> = new Map();
+  private setbackInput: SetbackInput | null = null;
   private callbacks: ToolbarCallbacks;
   private options: ToolbarOptions;
 
@@ -66,12 +73,13 @@ export class Toolbar {
 
   /**
    * Update the active mode displayed in the toolbar.
-   * @param mode - The active mode name ('idle', 'draw', 'select', 'split').
+   * @param mode - The active mode name ('idle', 'draw', 'select', 'split', 'setback').
    */
   setActiveMode(mode: string): void {
     const drawBtn = this.buttons.get('draw');
     const selectBtn = this.buttons.get('select');
     const splitBtn = this.buttons.get('split');
+    const setbackBtn = this.buttons.get('setback');
 
     if (drawBtn) {
       drawBtn.setActive(mode === 'draw');
@@ -81,6 +89,12 @@ export class Toolbar {
     }
     if (splitBtn) {
       splitBtn.setActive(mode === 'split');
+    }
+    if (setbackBtn) {
+      setbackBtn.setActive(mode === 'setback');
+    }
+    if (this.setbackInput) {
+      this.setbackInput.setVisible(mode === 'setback');
     }
   }
 
@@ -105,11 +119,22 @@ export class Toolbar {
    * Remove the toolbar from the map and clean up.
    */
   destroy(): void {
+    if (this.setbackInput) {
+      this.setbackInput.destroy();
+      this.setbackInput = null;
+    }
     for (const button of this.buttons.values()) {
       button.destroy();
     }
     this.buttons.clear();
     this.container.remove();
+  }
+
+  /**
+   * Current setback distance in meters.
+   */
+  getSetbackDistance(): number {
+    return this.setbackInput?.getDistance() ?? 10;
   }
 
   /**
@@ -137,6 +162,10 @@ export class Toolbar {
       this.addButton('split', splitIcon, 'Split feature', () => {
         this.callbacks.onSplitClick();
       }, true);
+    }
+
+    if (controls.setback) {
+      this.addSetbackControl();
     }
 
     if (controls.delete) {
@@ -170,7 +199,44 @@ export class Toolbar {
   ): void {
     const button = new ToolbarButton({ id, icon, title, onClick, isToggle });
     this.buttons.set(id, button);
-    this.container.appendChild(button.getElement());
+    const row = this.createControlRow();
+    row.appendChild(button.getElement());
+    this.container.appendChild(row);
+  }
+
+  /**
+   * Create setback toggle button + inline distance input.
+   */
+  private addSetbackControl(): void {
+    const row = this.createControlRow();
+
+    const button = new ToolbarButton({
+      id: 'setback',
+      icon: setbackIcon,
+      title: 'Setback edge',
+      onClick: () => this.callbacks.onSetbackClick(),
+      isToggle: true,
+    });
+    this.buttons.set('setback', button);
+    row.appendChild(button.getElement());
+
+    this.setbackInput = new SetbackInput({
+      onSubmit: (distance) => this.callbacks.onSetbackExecute(distance),
+      onDistanceChange: (distance) => this.callbacks.onSetbackDistanceChange(distance),
+    });
+    row.appendChild(this.setbackInput.getElement());
+
+    this.container.appendChild(row);
+  }
+
+  /**
+   * Create a single control row container.
+   */
+  private createControlRow(): HTMLDivElement {
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    return row;
   }
 
   /**

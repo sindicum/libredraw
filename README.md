@@ -11,6 +11,8 @@ A polygon drawing and editing library for [MapLibre GL JS](https://maplibre.org/
 - **Draw polygons** — Click/tap to place vertices, double-click/double-tap to finish
 - **Select & edit** — Click a polygon to select it, drag vertices to reshape, drag midpoints to add vertices
 - **Polygon drag** — Drag an entire selected polygon to reposition it
+- **Split polygon** — Cut a polygon into two polygons with a two-point split line
+- **Setback edge** — Offset a selected edge inward and remove the setback band
 - **Undo / Redo** — Full history support for all operations
 - **GeoJSON in/out** — Import and export standard GeoJSON FeatureCollections
 - **Touch-first** — Designed for mobile with proper touch targets (44px+), long-press support, and gesture handling
@@ -60,7 +62,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 
 | Method                    | Description                                           |
 | ------------------------- | ----------------------------------------------------- |
-| `setMode(mode)`           | Set active mode: `'idle'`, `'draw'`, or `'select'`    |
+| `setMode(mode)`           | Set active mode: `'idle'`, `'draw'`, `'select'`, `'split'`, or `'setback'` |
 | `getMode()`               | Get the current mode                                  |
 | `getFeatures()`           | Get all features as an array                          |
 | `toGeoJSON()`             | Export all features as a GeoJSON FeatureCollection    |
@@ -79,13 +81,17 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 
 ### Events
 
-| Event             | Payload                  | Description           |
-| ----------------- | ------------------------ | --------------------- |
-| `create`          | `{ feature }`            | A polygon was created |
-| `update`          | `{ feature }`            | A polygon was updated |
-| `delete`          | `{ feature }`            | A polygon was deleted |
-| `selectionchange` | `{ selectedIds }`        | Selection changed     |
-| `modechange`      | `{ mode, previousMode }` | Active mode changed   |
+| Event             | Payload                                            | Description                          |
+| ----------------- | -------------------------------------------------- | ------------------------------------ |
+| `create`          | `{ feature }`                                      | A polygon was created                |
+| `update`          | `{ feature, oldFeature }`                          | A polygon was updated                |
+| `delete`          | `{ feature }`                                      | A polygon was deleted                |
+| `split`           | `{ originalFeature, features: [featureA, featureB] }` | A polygon was split into two polygons |
+| `splitfailed`     | `{ reason, featureId }`                            | Split operation failed               |
+| `setback`         | `{ originalFeature, feature, edgeIndex, distance }` | Setback operation succeeded          |
+| `setbackfailed`   | `{ reason, featureId }`                            | Setback operation failed             |
+| `selectionchange` | `{ selectedIds }`                                  | Selection changed                    |
+| `modechange`      | `{ mode, previousMode }`                           | Active mode changed                  |
 
 ### Options
 
@@ -98,6 +104,8 @@ interface LibreDrawOptions {
         controls?: {
           draw?: boolean;
           select?: boolean;
+          split?: boolean;
+          setback?: boolean;
           delete?: boolean;
           undo?: boolean;
           redo?: boolean;

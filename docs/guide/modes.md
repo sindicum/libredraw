@@ -9,6 +9,8 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 | `idle` | No drawing interaction. Map behaves normally. | Default / toolbar |
 | `draw` | Click to add vertices, double-click to close polygon. | Toolbar draw button / `setMode('draw')` |
 | `select` | Click to select, drag to edit vertices or move polygon. | Toolbar select button / `setMode('select')` |
+| `split` | Split a polygon with a two-point line. | Toolbar split button / `setMode('split')` |
+| `setback` | Apply inward edge setback with distance input. | Toolbar setback button / `setMode('setback')` |
 
 ### Try it
 
@@ -57,7 +59,7 @@ draw.setMode('draw');
 
 draw.on('create', (e) => {
   console.log('New polygon:', e.feature);
-  // Automatically switches to idle mode after creation
+  // Remains in draw mode for continuous drawing
 });
 ```
 
@@ -109,6 +111,41 @@ draw.on('update', (e) => {
 draw.on('selectionchange', (e) => {
   console.log('Selection:', e.selectedIds);
 });
+```
+
+## Split Mode
+
+In split mode, you split one polygon into two polygons.
+
+| Action | Effect |
+|--------|--------|
+| Click on polygon | Select split target |
+| Click first point | Set split-line start |
+| Click second point | Execute split |
+| Escape key | Cancel current split interaction |
+
+```ts
+draw.setMode('split');
+draw.on('split', (e) => console.log(e.originalFeature.id, e.features));
+draw.on('splitfailed', (e) => console.warn(e.reason));
+```
+
+## Setback Mode
+
+In setback mode, you select an edge and apply inward offset by distance.
+
+| Action | Effect |
+|--------|--------|
+| Click on polygon | Select setback target |
+| Click edge | Start preview |
+| Change distance | Update preview line |
+| Enter / execute button | Apply setback |
+| Escape key | Cancel and reset |
+
+```ts
+draw.setMode('setback');
+draw.on('setback', (e) => console.log(e.edgeIndex, e.distance));
+draw.on('setbackfailed', (e) => console.warn(e.reason));
 ```
 
 ## Mode Transitions

@@ -47,6 +47,8 @@ describe('Edit Flow Integration', () => {
         renderFeatures: vi.fn(),
         renderPreview: vi.fn(),
         clearPreview: vi.fn(),
+        renderEdgeHighlight: vi.fn(),
+        clearEdgeHighlight: vi.fn(),
         renderVertices: vi.fn(),
         clearVertices: vi.fn(),
         setSelectedIds: vi.fn(),
@@ -56,6 +58,7 @@ describe('Edit Flow Integration', () => {
         y: lngLat.lat * 10,
       }),
       setDragPan: vi.fn(),
+      getSetbackDistance: () => 10,
     };
 
     const drawMode = new DrawMode(modeContext);

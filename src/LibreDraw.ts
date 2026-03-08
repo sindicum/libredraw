@@ -19,6 +19,7 @@ import { IdleMode } from './modes/IdleMode';
 import { DrawMode } from './modes/DrawMode';
 import { SelectMode } from './modes/SelectMode';
 import { SplitMode } from './modes/SplitMode';
+import { SetbackMode } from './modes/SetbackMode';
 import type { MapInteractionConfig } from './modes/Mode';
 import { InputHandler } from './input/InputHandler';
 import { SourceManager } from './rendering/SourceManager';
@@ -51,6 +52,7 @@ export class LibreDraw {
   private renderManager: RenderManager;
   private toolbar: Toolbar | null = null;
   private selectMode: SelectMode;
+  private setbackMode: SetbackMode;
   private destroyed = false;
   private inputEnabled = false;
 
@@ -127,6 +129,9 @@ export class LibreDraw {
         renderFeatures: () => this.renderAllFeatures(),
         renderPreview: (coords) => this.renderManager.renderPreview(coords),
         clearPreview: () => this.renderManager.clearPreview(),
+        renderEdgeHighlight: (coords) =>
+          this.renderManager.renderEdgeHighlight(coords),
+        clearEdgeHighlight: () => this.renderManager.clearEdgeHighlight(),
         renderVertices: (vertices, midpoints, highlightIndex) =>
           this.renderManager.renderVertices(vertices, midpoints, highlightIndex),
         clearVertices: () => this.renderManager.clearVertices(),
@@ -143,17 +148,20 @@ export class LibreDraw {
           map.dragPan.disable();
         }
       },
+      getSetbackDistance: () => this.toolbar?.getSetbackDistance() ?? 10,
     };
 
     const drawMode = new DrawMode(modeContext);
     this.selectMode = new SelectMode(modeContext);
     const splitMode = new SplitMode(modeContext);
+    this.setbackMode = new SetbackMode(modeContext);
 
     // Register modes
     this.modeManager.registerMode('idle', new IdleMode());
     this.modeManager.registerMode('draw', drawMode);
     this.modeManager.registerMode('select', this.selectMode);
     this.modeManager.registerMode('split', splitMode);
+    this.modeManager.registerMode('setback', this.setbackMode);
 
     // Mode change event
     this.modeManager.setOnModeChange((mode, previousMode) => {
@@ -677,6 +685,18 @@ export class LibreDraw {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'split' ? 'idle' : 'split');
         },
+        onSetbackClick: () => {
+          const current = this.modeManager.getMode();
+          this.modeManager.setMode(
+            current === 'setback' ? 'idle' : 'setback',
+          );
+        },
+        onSetbackExecute: (distance) => {
+          this.setbackMode.executeFromUi(distance);
+        },
+        onSetbackDistanceChange: (distance) => {
+          this.setbackMode.onDistanceChange(distance);
+        },
         onDeleteClick: () => {
           if (this.modeManager.getMode() === 'select') {
             const selectedIds = this.selectMode.getSelectedIds();
@@ -739,6 +759,8 @@ export class LibreDraw {
     this.selectMode.clearSelection();
     this.renderManager.setSelectedIds([]);
     this.renderManager.clearVertices();
+    this.renderManager.clearEdgeHighlight();
+    this.renderManager.clearPreview();
   }
 
   /**

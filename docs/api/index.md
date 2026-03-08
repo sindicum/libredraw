@@ -30,9 +30,9 @@ All types are exported as TypeScript type-only exports:
 | [`ToolbarOptions`](/api/types#toolbaroptions) | Toolbar configuration |
 | [`ToolbarPosition`](/api/types#toolbarposition) | Toolbar placement |
 | [`ToolbarControls`](/api/types#toolbarcontrols) | Which toolbar buttons to show |
-| [`ModeName`](/api/types#modename) | `'idle' \| 'draw' \| 'select'` |
+| [`ModeName`](/api/types#modename) | `'idle' \| 'draw' \| 'select' \| 'split' \| 'setback'` |
 | [`Action`](/api/types#action) | Undo/redo action interface |
-| [`ActionType`](/api/types#actiontype) | `'create' \| 'update' \| 'delete'` |
+| [`ActionType`](/api/types#actiontype) | `'create' \| 'update' \| 'delete' \| 'split' \| 'setback'` |
 | [`NormalizedInputEvent`](/api/types#normalizedinputevent) | Unified mouse/touch event |
 | [`InputType`](/api/types#inputtype) | `'mouse' \| 'touch'` |
 
@@ -43,6 +43,10 @@ All types are exported as TypeScript type-only exports:
 | [`create`](/api/events#create) | `CreateEvent` | Polygon created |
 | [`update`](/api/events#update) | `UpdateEvent` | Polygon edited |
 | [`delete`](/api/events#delete) | `DeleteEvent` | Polygon deleted |
+| [`split`](/api/events#split) | `SplitEvent` | Polygon split into two polygons |
+| [`splitfailed`](/api/events#splitfailed) | `SplitFailedEvent` | Split operation failed |
+| [`setback`](/api/events#setback) | `SetbackEvent` | Setback operation succeeded |
+| [`setbackfailed`](/api/events#setbackfailed) | `SetbackFailedEvent` | Setback operation failed |
 | [`selectionchange`](/api/events#selectionchange) | `SelectionChangeEvent` | Selection changed |
 | [`modechange`](/api/events#modechange) | `ModeChangeEvent` | Mode switched |
 

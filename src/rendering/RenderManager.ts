@@ -12,6 +12,7 @@ export const LAYER_IDS = {
   OUTLINE: 'libre-draw-outline',
   VERTICES: 'libre-draw-vertices',
   PREVIEW: 'libre-draw-preview',
+  EDGE_HIGHLIGHT: 'libre-draw-edge-highlight',
   EDIT_VERTICES: 'libre-draw-edit-vertices',
   EDIT_MIDPOINTS: 'libre-draw-edit-midpoints',
 } as const;
@@ -138,6 +139,19 @@ export class RenderManager {
       });
     }
 
+    // Edge highlight layer (solid thicker line for selected edge in setback mode)
+    if (!this.map.getLayer(LAYER_IDS.EDGE_HIGHLIGHT)) {
+      this.map.addLayer({
+        id: LAYER_IDS.EDGE_HIGHLIGHT,
+        type: 'line',
+        source: SOURCE_IDS.EDGE_HIGHLIGHT,
+        paint: {
+          'line-color': this.style.outline.selectedColor,
+          'line-width': this.style.outline.width + 2,
+        },
+      });
+    }
+
     // Edit midpoints layer (semi-transparent small circles at edge midpoints)
     if (!this.map.getLayer(LAYER_IDS.EDIT_MIDPOINTS)) {
       this.map.addLayer({
@@ -243,6 +257,42 @@ export class RenderManager {
   }
 
   /**
+   * Render highlighted edge line (for setback edge selection).
+   * @param coordinates - Two-point line coordinates.
+   */
+  renderEdgeHighlight(coordinates: Position[]): void {
+    if (coordinates.length < 2) {
+      this.clearEdgeHighlight();
+      return;
+    }
+
+    const geojsonCoords = coordinates.map(
+      (pos) => [pos[0], pos[1]] as [number, number],
+    );
+
+    this.sourceManager.updateEdgeHighlight({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: geojsonCoords,
+          },
+        },
+      ],
+    });
+  }
+
+  /**
+   * Clear highlighted edge line.
+   */
+  clearEdgeHighlight(): void {
+    this.sourceManager.clearEdgeHighlight();
+  }
+
+  /**
    * Render vertex and midpoint markers for editing a selected polygon.
    * @param vertices - The polygon vertex positions.
    * @param midpoints - The edge midpoint positions.
@@ -299,6 +349,7 @@ export class RenderManager {
     const layerIds = [
       LAYER_IDS.EDIT_VERTICES,
       LAYER_IDS.EDIT_MIDPOINTS,
+      LAYER_IDS.EDGE_HIGHLIGHT,
       LAYER_IDS.PREVIEW,
       LAYER_IDS.VERTICES,
       LAYER_IDS.OUTLINE,
@@ -353,6 +404,7 @@ export class RenderManager {
         this.map.getLayer(LAYER_IDS.OUTLINE) &&
         this.map.getLayer(LAYER_IDS.VERTICES) &&
         this.map.getLayer(LAYER_IDS.PREVIEW) &&
+        this.map.getLayer(LAYER_IDS.EDGE_HIGHLIGHT) &&
         this.map.getLayer(LAYER_IDS.EDIT_MIDPOINTS) &&
         this.map.getLayer(LAYER_IDS.EDIT_VERTICES),
     );

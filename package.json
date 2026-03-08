@@ -1,6 +1,6 @@
 {
   "name": "@sindicum/libre-draw",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "MapLibre GL JS polygon drawing and editing library",
   "type": "module",
   "main": "./dist/libre-draw.cjs",
@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@turf/boolean-point-in-polygon": "^7.0.0",
+    "@turf/destination": "^7.3.4",
     "@turf/helpers": "^7.0.0"
   },
   "devDependencies": {

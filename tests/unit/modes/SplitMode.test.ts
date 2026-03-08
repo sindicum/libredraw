@@ -47,6 +47,8 @@ interface TestHarness {
     renderFeatures: ReturnType<typeof vi.fn>;
     renderPreview: ReturnType<typeof vi.fn>;
     clearPreview: ReturnType<typeof vi.fn>;
+    renderEdgeHighlight: ReturnType<typeof vi.fn>;
+    clearEdgeHighlight: ReturnType<typeof vi.fn>;
     renderVertices: ReturnType<typeof vi.fn>;
     clearVertices: ReturnType<typeof vi.fn>;
     setSelectedIds: ReturnType<typeof vi.fn>;
@@ -78,6 +80,8 @@ function createHarness(): TestHarness {
   const renderFeatures = vi.fn();
   const renderPreview = vi.fn();
   const clearPreview = vi.fn();
+  const renderEdgeHighlight = vi.fn();
+  const clearEdgeHighlight = vi.fn();
   const renderVertices = vi.fn();
   const clearVertices = vi.fn();
   const setSelectedIds = vi.fn();
@@ -101,12 +105,15 @@ function createHarness(): TestHarness {
       renderFeatures,
       renderPreview,
       clearPreview,
+      renderEdgeHighlight,
+      clearEdgeHighlight,
       renderVertices,
       clearVertices,
       setSelectedIds,
     },
     getScreenPoint: ({ lng, lat }) => ({ x: lng * 10, y: lat * 10 }),
     setDragPan,
+    getSetbackDistance: () => 10,
   };
 
   return {
@@ -123,6 +130,8 @@ function createHarness(): TestHarness {
       renderFeatures,
       renderPreview,
       clearPreview,
+      renderEdgeHighlight,
+      clearEdgeHighlight,
       renderVertices,
       clearVertices,
       setSelectedIds,

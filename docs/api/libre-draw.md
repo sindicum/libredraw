@@ -43,7 +43,15 @@ const draw = new LibreDraw(map);
 const draw = new LibreDraw(map, {
   toolbar: {
     position: 'top-right',
-    controls: { draw: true, select: true, delete: true, undo: true, redo: true },
+    controls: {
+      draw: true,
+      select: true,
+      split: true,
+      setback: true,
+      delete: true,
+      undo: true,
+      redo: true,
+    },
   },
   historyLimit: 50,
   style: {
@@ -70,7 +78,7 @@ Switching modes deactivates the current mode (clearing any in-progress state) an
 
 | Name | Type | Description |
 |------|------|-------------|
-| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw'`, or `'select'` |
+| `mode` | [`ModeName`](/api/types#modename) | `'idle'`, `'draw'`, `'select'`, `'split'`, or `'setback'` |
 
 **Returns:** `void`
 
@@ -92,7 +100,7 @@ draw.on('modechange', (e) => {
 
 Get the current drawing mode.
 
-**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw'`, or `'select'`.
+**Returns:** [`ModeName`](/api/types#modename) — `'idle'`, `'draw'`, `'select'`, `'split'`, or `'setback'`.
 
 **Throws:** [`LibreDrawError`](/api/types#libredrawerror) if this instance has been destroyed.
 
@@ -357,7 +365,7 @@ console.log(draw.getSelectedFeatureIds()); // []
 
 Undo the last action.
 
-Reverts the most recent action (create, update, or delete) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
+Reverts the most recent action (`create`, `update`, `delete`, `split`, or `setback`) and updates the map rendering. If a feature is selected and its geometry changes, vertex handles are refreshed.
 
 **Returns:** `boolean` — `true` if an action was undone, `false` if nothing to undo.
 
@@ -415,6 +423,10 @@ Register an event listener.
 draw.on('create', (e) => console.log('Created:', e.feature.id));
 draw.on('update', (e) => console.log('Updated:', e.feature.id));
 draw.on('delete', (e) => console.log('Deleted:', e.feature.id));
+draw.on('split', (e) => console.log('Split:', e.originalFeature.id, e.features));
+draw.on('splitfailed', (e) => console.log('Split failed:', e.reason, e.featureId));
+draw.on('setback', (e) => console.log('Setback:', e.originalFeature.id, e.feature.id));
+draw.on('setbackfailed', (e) => console.log('Setback failed:', e.reason, e.featureId));
 draw.on('selectionchange', (e) => console.log('Selected:', e.selectedIds));
 draw.on('modechange', (e) => console.log(`${e.previousMode} → ${e.mode}`));
 ```

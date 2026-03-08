@@ -22,6 +22,8 @@ function createMockContext(): ModeContext {
     render: {
       renderPreview: vi.fn(),
       clearPreview: vi.fn(),
+      renderEdgeHighlight: vi.fn(),
+      clearEdgeHighlight: vi.fn(),
       renderFeatures: vi.fn(),
       renderVertices: vi.fn(),
       clearVertices: vi.fn(),
@@ -29,6 +31,7 @@ function createMockContext(): ModeContext {
     },
     getScreenPoint: vi.fn((lngLat) => ({ x: lngLat.lng * 10, y: lngLat.lat * 10 })),
     setDragPan: vi.fn(),
+    getSetbackDistance: () => 10,
   };
 }
 

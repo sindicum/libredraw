@@ -16,6 +16,7 @@ export {
   UpdateAction,
   DeleteAction,
   SplitAction,
+  SetbackAction,
 } from './features';
 
 export type {
@@ -24,6 +25,9 @@ export type {
   DeleteEvent,
   SplitEvent,
   SplitFailedEvent,
+  SetbackEvent,
+  SetbackFailedEvent,
+  SetbackFailReason,
   SelectionChangeEvent,
   ModeChangeEvent,
   LibreDrawEventMap,

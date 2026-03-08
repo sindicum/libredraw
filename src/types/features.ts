@@ -41,7 +41,7 @@ export interface FeatureCollection {
 /**
  * The type of history action.
  */
-export type ActionType = 'create' | 'update' | 'delete' | 'split';
+export type ActionType = 'create' | 'update' | 'delete' | 'split' | 'setback';
 
 /**
  * A reversible action that can be applied and reverted on a FeatureStore.
@@ -159,6 +159,33 @@ export class SplitAction implements Action {
   revert(store: FeatureStoreInterface): void {
     store.remove(this.featureA.id);
     store.remove(this.featureB.id);
+    store.add(this.originalFeature);
+  }
+}
+
+/**
+ * Action that represents applying setback to one feature (1 -> 1 replacement).
+ */
+export class SetbackAction implements Action {
+  public readonly type: ActionType = 'setback';
+  public readonly originalFeature: LibreDrawFeature;
+  public readonly resultFeature: LibreDrawFeature;
+
+  constructor(
+    originalFeature: LibreDrawFeature,
+    resultFeature: LibreDrawFeature,
+  ) {
+    this.originalFeature = cloneFeature(originalFeature);
+    this.resultFeature = cloneFeature(resultFeature);
+  }
+
+  apply(store: FeatureStoreInterface): void {
+    store.remove(this.originalFeature.id);
+    store.add(this.resultFeature);
+  }
+
+  revert(store: FeatureStoreInterface): void {
+    store.remove(this.resultFeature.id);
     store.add(this.originalFeature);
   }
 }

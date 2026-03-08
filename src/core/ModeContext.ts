@@ -25,6 +25,8 @@ export interface ModeContext {
     renderFeatures(): void;
     renderPreview(coordinates: Position[]): void;
     clearPreview(): void;
+    renderEdgeHighlight(coordinates: Position[]): void;
+    clearEdgeHighlight(): void;
     renderVertices(
       vertices: Position[],
       midpoints: Position[],
@@ -35,4 +37,5 @@ export interface ModeContext {
   };
   getScreenPoint(lngLat: { lng: number; lat: number }): { x: number; y: number };
   setDragPan(enabled: boolean): void;
+  getSetbackDistance(): number;
 }

@@ -6,6 +6,7 @@ import type { Map as MaplibreMap, GeoJSONSource } from 'maplibre-gl';
 export const SOURCE_IDS = {
   FEATURES: 'libre-draw-features',
   PREVIEW: 'libre-draw-preview',
+  EDGE_HIGHLIGHT: 'libre-draw-edge-highlight',
   EDIT_VERTICES: 'libre-draw-edit-vertices',
 } as const;
 
@@ -38,6 +39,7 @@ export class SourceManager {
     return Boolean(
       this.map.getSource(SOURCE_IDS.FEATURES) &&
         this.map.getSource(SOURCE_IDS.PREVIEW) &&
+        this.map.getSource(SOURCE_IDS.EDGE_HIGHLIGHT) &&
         this.map.getSource(SOURCE_IDS.EDIT_VERTICES),
     );
   }
@@ -58,6 +60,13 @@ export class SourceManager {
 
     if (!this.map.getSource(SOURCE_IDS.PREVIEW)) {
       this.map.addSource(SOURCE_IDS.PREVIEW, {
+        type: 'geojson',
+        data: EMPTY_FC,
+      });
+    }
+
+    if (!this.map.getSource(SOURCE_IDS.EDGE_HIGHLIGHT)) {
+      this.map.addSource(SOURCE_IDS.EDGE_HIGHLIGHT, {
         type: 'geojson',
         data: EMPTY_FC,
       });
@@ -103,6 +112,24 @@ export class SourceManager {
   }
 
   /**
+   * Update the edge highlight source with new GeoJSON data.
+   * @param data - A GeoJSON FeatureCollection.
+   */
+  updateEdgeHighlight(data: GeoJSON.FeatureCollection): void {
+    const source = this.map.getSource<GeoJSONSource>(SOURCE_IDS.EDGE_HIGHLIGHT);
+    if (source) {
+      source.setData(data);
+    }
+  }
+
+  /**
+   * Clear the edge highlight source.
+   */
+  clearEdgeHighlight(): void {
+    this.updateEdgeHighlight(EMPTY_FC);
+  }
+
+  /**
    * Update the edit vertices source with new GeoJSON data.
    * @param data - A GeoJSON FeatureCollection of Point features.
    */
@@ -129,6 +156,9 @@ export class SourceManager {
     }
     if (this.map.getSource(SOURCE_IDS.PREVIEW)) {
       this.map.removeSource(SOURCE_IDS.PREVIEW);
+    }
+    if (this.map.getSource(SOURCE_IDS.EDGE_HIGHLIGHT)) {
+      this.map.removeSource(SOURCE_IDS.EDGE_HIGHLIGHT);
     }
     if (this.map.getSource(SOURCE_IDS.EDIT_VERTICES)) {
       this.map.removeSource(SOURCE_IDS.EDIT_VERTICES);
