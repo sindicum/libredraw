@@ -634,4 +634,77 @@ describe('LibreDraw lifecycle integration', () => {
 
     draw.destroy();
   });
+
+  describe('draw-rectangle toolbar button', () => {
+    it('should show the draw-rectangle button by default and toggle the mode', () => {
+      const map = new FakeMap();
+      const container = map.getContainer();
+      const draw = new LibreDraw(map.asMap());
+
+      const button = container.querySelector<HTMLButtonElement>(
+        'button[title="Draw rectangle"]',
+      );
+      expect(button).not.toBeNull();
+      expect(button!.dataset.libreDrawButton).toBe('draw-rectangle');
+
+      const modeListener = vi.fn();
+      draw.on('modechange', modeListener);
+
+      button!.click();
+      expect(draw.getMode()).toBe('draw-rectangle');
+      expect(button!.getAttribute('aria-pressed')).toBe('true');
+      expect(modeListener).toHaveBeenLastCalledWith({
+        mode: 'draw-rectangle',
+        previousMode: 'idle',
+      });
+
+      // Pressing the active button again returns to idle.
+      button!.click();
+      expect(draw.getMode()).toBe('idle');
+      expect(button!.getAttribute('aria-pressed')).toBe('false');
+
+      draw.destroy();
+    });
+
+    it('should reflect setMode("draw-rectangle") in the toolbar and keep dragPan enabled', () => {
+      const map = new FakeMap();
+      const container = map.getContainer();
+      const draw = new LibreDraw(map.asMap());
+      const button = container.querySelector<HTMLButtonElement>(
+        'button[title="Draw rectangle"]',
+      )!;
+      const drawButton = container.querySelector<HTMLButtonElement>(
+        'button[title="Draw polygon"]',
+      )!;
+
+      draw.setMode('draw-rectangle');
+      expect(button.getAttribute('aria-pressed')).toBe('true');
+      expect(drawButton.getAttribute('aria-pressed')).toBe('false');
+      // Corners are placed by clicks/taps, so a drag stays free to pan the
+      // map -- the only single-finger map gesture available on touch.
+      expect(map.dragPan.enable).toHaveBeenCalled();
+      expect(map.dragPan.disable).not.toHaveBeenCalled();
+      expect(map.doubleClickZoom.disable).toHaveBeenCalled();
+
+      draw.setMode('draw');
+      expect(button.getAttribute('aria-pressed')).toBe('false');
+      expect(drawButton.getAttribute('aria-pressed')).toBe('true');
+
+      draw.destroy();
+    });
+
+    it('should hide the draw-rectangle button when controls.drawRectangle is false', () => {
+      const map = new FakeMap();
+      const container = map.getContainer();
+      const draw = new LibreDraw(map.asMap(), {
+        toolbar: { controls: { drawRectangle: false } },
+      });
+
+      expect(container.querySelector('button[title="Draw rectangle"]')).toBeNull();
+      // Other buttons are unaffected.
+      expect(container.querySelector('button[title="Draw polygon"]')).not.toBeNull();
+
+      draw.destroy();
+    });
+  });
 });

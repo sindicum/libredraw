@@ -30,6 +30,7 @@ const draw = new LibreDraw(map, {
     position: 'top-left',
     controls: {
       draw: true,
+      drawRectangle: true,
       select: true,
       delete: true,
       undo: true,

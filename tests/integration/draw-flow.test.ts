@@ -7,6 +7,7 @@ import type { ModeContext } from '../../src/core/ModeContext';
 import { IdleMode } from '../../src/modes/IdleMode';
 import { DrawMode } from '../../src/modes/DrawMode';
 import { DrawLineMode } from '../../src/modes/DrawLineMode';
+import { DrawRectangleMode } from '../../src/modes/DrawRectangleMode';
 import { SelectMode } from '../../src/modes/SelectMode';
 import type { NormalizedInputEvent } from '../../src/types/input';
 import type {
@@ -19,13 +20,31 @@ import type {
 function createPointerEvent(
   lng: number,
   lat: number,
+  inputType: 'mouse' | 'touch' = 'mouse',
 ): NormalizedInputEvent {
   return {
     lngLat: { lng, lat },
     point: { x: lng * 10, y: lat * 10 },
     originalEvent: new MouseEvent('click'),
-    inputType: 'mouse',
+    inputType,
   };
+}
+
+/**
+ * A click or tap: pointer down and up at the same position. Modes that place
+ * points on pointer up (draw-rectangle) need the full pair.
+ */
+function clickAt(
+  mode: {
+    onPointerDown(event: NormalizedInputEvent): void;
+    onPointerUp(event: NormalizedInputEvent): void;
+  },
+  lng: number,
+  lat: number,
+  inputType: 'mouse' | 'touch' = 'mouse',
+): void {
+  mode.onPointerDown(createPointerEvent(lng, lat, inputType));
+  mode.onPointerUp(createPointerEvent(lng, lat, inputType));
 }
 
 describe('Draw Flow Integration', () => {
@@ -72,11 +91,13 @@ describe('Draw Flow Integration', () => {
 
     const drawMode = new DrawMode(modeContext);
     const drawLineMode = new DrawLineMode(modeContext);
+    const drawRectangleMode = new DrawRectangleMode(modeContext);
     const selectMode = new SelectMode(modeContext, vi.fn());
 
     modeManager.registerMode('idle', new IdleMode());
     modeManager.registerMode('draw', drawMode);
     modeManager.registerMode('draw-line', drawLineMode);
+    modeManager.registerMode('draw-rectangle', drawRectangleMode);
     modeManager.registerMode('select', selectMode);
 
     return {
@@ -86,6 +107,7 @@ describe('Draw Flow Integration', () => {
       modeManager,
       drawMode,
       drawLineMode,
+      drawRectangleMode,
       selectMode,
     };
   }
@@ -468,6 +490,141 @@ describe('Draw Flow Integration', () => {
       expect(drawLineMode.getDraftVertexCount()).toBe(0);
       expect(modeManager.getMode()).toBe('draw-line');
       expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+    });
+  });
+
+  describe('draw-rectangle flow', () => {
+    it('should create a rectangle with two clicks, then undo and redo it', () => {
+      const { eventBus, store, history, modeManager, drawRectangleMode } =
+        createDrawingSystem();
+      const events: string[] = [];
+      eventBus.on('create', () => events.push('create'));
+      eventBus.on('draftchange', (e: DraftChangeEvent) =>
+        events.push(`draft:${e.vertexCount}`),
+      );
+
+      modeManager.setMode('draw-rectangle');
+      clickAt(drawRectangleMode, 0, 0);
+      expect(drawRectangleMode.getDraftVertexCount()).toBe(1);
+
+      drawRectangleMode.onPointerMove(createPointerEvent(5, 5));
+      clickAt(drawRectangleMode, 10, 20);
+
+      expect(store.getAll()).toHaveLength(1);
+      const feature = store.getAll()[0];
+      expect(feature.geometry.type).toBe('Polygon');
+      expect(feature.geometry.coordinates).toEqual([
+        [
+          [0, 0],
+          [10, 0],
+          [10, 20],
+          [0, 20],
+          [0, 0],
+        ],
+      ]);
+      expect(events).toEqual(['draft:1', 'create', 'draft:0']);
+      expect(modeManager.getMode()).toBe('draw-rectangle');
+
+      history.undo(store);
+      expect(store.getAll()).toHaveLength(0);
+
+      history.redo(store);
+      expect(store.getAll()).toHaveLength(1);
+      expect(store.getAll()[0].id).toBe(feature.id);
+    });
+
+    it('should create exactly one rectangle from two taps', () => {
+      const { store, modeManager, drawRectangleMode } = createDrawingSystem();
+
+      modeManager.setMode('draw-rectangle');
+      clickAt(drawRectangleMode, 0, 0, 'touch');
+      clickAt(drawRectangleMode, 10, 20, 'touch');
+
+      expect(store.getAll()).toHaveLength(1);
+      expect(store.getAll()[0].geometry.coordinates).toEqual([
+        [
+          [0, 0],
+          [10, 0],
+          [10, 20],
+          [0, 20],
+          [0, 0],
+        ],
+      ]);
+    });
+
+    it('should not chain rectangles from the release point of a touch drag', () => {
+      // Regression: corners used to be placed on pointer down, so a finger
+      // drag left a stranded preview and the next touch finalized a rectangle
+      // anchored at the previous gesture -- chained, overlapping shapes.
+      const { store, modeManager, drawRectangleMode } = createDrawingSystem();
+
+      modeManager.setMode('draw-rectangle');
+
+      // Drag across the map (a pan): no corner, no feature, no draft.
+      drawRectangleMode.onPointerDown(createPointerEvent(0, 0, 'touch'));
+      drawRectangleMode.onPointerMove(createPointerEvent(5, 5, 'touch'));
+      drawRectangleMode.onPointerUp(createPointerEvent(5, 5, 'touch'));
+
+      expect(store.getAll()).toHaveLength(0);
+      expect(drawRectangleMode.getDraftVertexCount()).toBe(0);
+
+      // The next tap starts a fresh rectangle at the tapped point, not at
+      // the point where the previous drag was released.
+      clickAt(drawRectangleMode, 30, 30, 'touch');
+      clickAt(drawRectangleMode, 40, 50, 'touch');
+
+      expect(store.getAll()).toHaveLength(1);
+      expect(store.getAll()[0].geometry.coordinates[0][0]).toEqual([30, 30]);
+    });
+
+    it('should ignore a degenerate second corner and finalize with the next valid one', () => {
+      const { store, modeManager, drawRectangleMode } = createDrawingSystem();
+
+      modeManager.setMode('draw-rectangle');
+      clickAt(drawRectangleMode, 0, 0);
+      clickAt(drawRectangleMode, 0, 10); // same longitude
+
+      expect(store.getAll()).toHaveLength(0);
+      expect(drawRectangleMode.getDraftVertexCount()).toBe(1);
+
+      clickAt(drawRectangleMode, 10, 10);
+      expect(store.getAll()).toHaveLength(1);
+    });
+
+    it('should never finalize via finishDrawing() and discard the draft via cancelDrawing()', () => {
+      const { eventBus, store, modeManager, drawRectangleMode } =
+        createDrawingSystem();
+      const draftListener = vi.fn();
+      eventBus.on('draftchange', draftListener);
+
+      modeManager.setMode('draw-rectangle');
+      clickAt(drawRectangleMode, 0, 0);
+
+      expect(drawRectangleMode.finishDrawing()).toBe(false);
+      expect(store.getAll()).toHaveLength(0);
+      expect(drawRectangleMode.getDraftVertexCount()).toBe(1);
+
+      draftListener.mockClear();
+      drawRectangleMode.cancelDrawing();
+
+      expect(drawRectangleMode.getDraftVertexCount()).toBe(0);
+      expect(modeManager.getMode()).toBe('draw-rectangle');
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+    });
+
+    it('should emit draftchange(0) when leaving draw-rectangle mode with a pending corner', () => {
+      const { eventBus, modeManager, drawRectangleMode } = createDrawingSystem();
+      const draftListener = vi.fn();
+      eventBus.on('draftchange', draftListener);
+
+      modeManager.setMode('draw-rectangle');
+      clickAt(drawRectangleMode, 0, 0);
+      draftListener.mockClear();
+
+      modeManager.setMode('idle');
+
+      expect(draftListener).toHaveBeenCalledWith({ vertexCount: 0 });
+      expect(drawRectangleMode.getDraftVertexCount()).toBe(0);
     });
   });
 });

@@ -5,6 +5,7 @@ import { ToolbarButton } from './ToolbarButton';
 import { drawPointIcon } from './icons/draw-point';
 import { drawLineIcon } from './icons/draw-line';
 import { drawIcon } from './icons/draw';
+import { drawRectangleIcon } from './icons/draw-rectangle';
 import { selectIcon } from './icons/select';
 import { splitIcon } from './icons/split';
 import { setbackIcon } from './icons/setback';
@@ -22,6 +23,7 @@ const DEFAULT_CONTROLS: Required<ToolbarControls> = {
   drawPoint: true,
   drawLine: true,
   draw: true,
+  drawRectangle: true,
   select: true,
   split: true,
   setback: true,
@@ -38,6 +40,7 @@ export interface ToolbarCallbacks {
   onDrawPointClick(): void;
   onDrawLineClick(): void;
   onDrawClick(): void;
+  onDrawRectangleClick(): void;
   onSelectClick(): void;
   onSplitClick(): void;
   onSetbackClick(): void;
@@ -87,12 +90,14 @@ export class Toolbar {
 
   /**
    * Update the active mode displayed in the toolbar.
-   * @param mode - The active mode name ('idle', 'draw', 'select', 'split', 'setback').
+   * @param mode - The active mode name ('idle', 'draw-point', 'draw-line', 'draw',
+   *   'draw-rectangle', 'select', 'split', 'setback').
    */
   setActiveMode(mode: string): void {
     const drawPointBtn = this.buttons.get('draw-point');
     const drawLineBtn = this.buttons.get('draw-line');
     const drawBtn = this.buttons.get('draw');
+    const drawRectangleBtn = this.buttons.get('draw-rectangle');
     const selectBtn = this.buttons.get('select');
     const splitBtn = this.buttons.get('split');
     const setbackBtn = this.buttons.get('setback');
@@ -105,6 +110,9 @@ export class Toolbar {
     }
     if (drawBtn) {
       drawBtn.setActive(mode === 'draw');
+    }
+    if (drawRectangleBtn) {
+      drawRectangleBtn.setActive(mode === 'draw-rectangle');
     }
     if (selectBtn) {
       selectBtn.setActive(mode === 'select');
@@ -194,6 +202,12 @@ export class Toolbar {
     if (controls.draw) {
       this.addButton('draw', drawIcon, 'Draw polygon', () => {
         this.callbacks.onDrawClick();
+      }, true);
+    }
+
+    if (controls.drawRectangle) {
+      this.addButton('draw-rectangle', drawRectangleIcon, 'Draw rectangle', () => {
+        this.callbacks.onDrawRectangleClick();
       }, true);
     }
 
