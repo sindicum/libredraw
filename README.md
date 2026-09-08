@@ -154,6 +154,17 @@ npm run build
 
 # Documentation site
 npm run docs:dev
+
+# Format (Prettier)
+npm run format
+```
+
+`.git-blame-ignore-revs` lists commits that only reformat code. Run this once
+per clone so `git blame` skips them and shows who actually wrote each line
+(GitHub's blame view honours the file without any setup):
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
 
 ## Requirements
