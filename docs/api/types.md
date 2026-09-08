@@ -233,6 +233,7 @@ interface ToolbarControls {
   drawPoint?: boolean;
   drawLine?: boolean;
   draw?: boolean;
+  drawRectangle?: boolean;
   select?: boolean;
   split?: boolean;
   setback?: boolean;
@@ -248,6 +249,7 @@ interface ToolbarControls {
 | `drawPoint` | `boolean` | `true` | Show draw-point mode toggle button |
 | `drawLine` | `boolean` | `true` | Show draw-line mode toggle button |
 | `draw` | `boolean` | `true` | Show draw mode toggle button |
+| `drawRectangle` | `boolean` | `true` | Show draw-rectangle mode toggle button |
 | `select` | `boolean` | `true` | Show select mode toggle button |
 | `split` | `boolean` | `true` | Show split mode toggle button |
 | `setback` | `boolean` | `true` | Show setback mode toggle button and distance input |
@@ -265,7 +267,15 @@ interface ToolbarControls {
 The available drawing mode names.
 
 ```ts
-type ModeName = 'idle' | 'draw-point' | 'draw-line' | 'draw' | 'select' | 'split' | 'setback';
+type ModeName =
+  | 'idle'
+  | 'draw-point'
+  | 'draw-line'
+  | 'draw'
+  | 'draw-rectangle'
+  | 'select'
+  | 'split'
+  | 'setback';
 ```
 
 | Value | Description |
@@ -274,6 +284,7 @@ type ModeName = 'idle' | 'draw-point' | 'draw-line' | 'draw' | 'select' | 'split
 | `'draw-point'` | Place point features by clicking/tapping. |
 | `'draw-line'` | Create lines by clicking/tapping vertices, double-click to finalize. |
 | `'draw'` | Create polygons by clicking/tapping vertices. |
+| `'draw-rectangle'` | Create an axis-aligned rectangle by clicking/tapping two opposite corners. |
 | `'select'` | Select and edit existing features (points, lines, and polygons). |
 | `'split'` | Split a polygon into two polygons with a two-point line. |
 | `'setback'` | Apply inward edge setback with distance input and preview. |

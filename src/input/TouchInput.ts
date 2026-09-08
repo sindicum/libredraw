@@ -1,20 +1,11 @@
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { NormalizedInputEvent } from '../types/input';
+import { LONG_PRESS_MS, LONG_PRESS_TOLERANCE } from './gestures';
 
 /**
  * Double-tap detection window in milliseconds.
  */
 const DOUBLE_TAP_MS = 300;
-
-/**
- * Long press detection threshold in milliseconds.
- */
-const LONG_PRESS_MS = 500;
-
-/**
- * Maximum movement (in pixels) allowed during a long press.
- */
-const LONG_PRESS_TOLERANCE = 15;
 
 /**
  * Callbacks that TouchInput dispatches to.

@@ -11,6 +11,7 @@ A point, line, and polygon drawing and editing library for [MapLibre GL JS](http
 - **Draw points** — Click/tap to place point features
 - **Draw lines** — Click/tap to add vertices, double-click/double-tap to finalize
 - **Draw polygons** — Click/tap to place vertices, double-click/double-tap to close
+- **Draw rectangles** — Click/tap two opposite corners to create an axis-aligned rectangle
 - **Select & edit** — Click a feature to select it, drag vertices to reshape, drag midpoints to add vertices
 - **Feature drag** — Drag an entire selected point, line, or polygon to reposition it
 - **Split polygon** — Cut a polygon into two polygons with a two-point split line
@@ -65,7 +66,7 @@ new LibreDraw(map: maplibregl.Map, options?: LibreDrawOptions)
 
 | Method                    | Description                                           |
 | ------------------------- | ----------------------------------------------------- |
-| `setMode(mode)`           | Set active mode: `'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'select'`, `'split'`, or `'setback'` |
+| `setMode(mode)`           | Set active mode: `'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'` |
 | `getMode()`               | Get the current mode                                  |
 | `getFeatures()`           | Get all features as an array                          |
 | `toGeoJSON()`             | Export all features as a GeoJSON FeatureCollection    |
@@ -108,6 +109,7 @@ interface LibreDrawOptions {
           drawPoint?: boolean;
           drawLine?: boolean;
           draw?: boolean;
+          drawRectangle?: boolean;
           select?: boolean;
           split?: boolean;
           setback?: boolean;

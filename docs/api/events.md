@@ -24,7 +24,7 @@ interface LibreDrawEventMap {
 ## `create`
 
 Emitted when a new feature is created.
-In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw` mode it happens when the polygon is completed.
+In `draw-point` mode this happens on each click/tap. In `draw-line` mode it happens when the line is finalized. In `draw` mode it happens when the polygon is completed. In `draw-rectangle` mode it happens on the second corner click.
 
 ### Payload: `CreateEvent`
 
@@ -284,7 +284,7 @@ interface ModeChangeEvent {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `mode` | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'select'`, `'split'`, or `'setback'`) |
+| `mode` | [`ModeName`](/api/types#modename) | The new active mode (`'idle'`, `'draw-point'`, `'draw-line'`, `'draw'`, `'draw-rectangle'`, `'select'`, `'split'`, or `'setback'`) |
 | `previousMode` | [`ModeName`](/api/types#modename) | The previous mode |
 
 ### Example
@@ -305,7 +305,7 @@ draw.on('modechange', (e) => {
 
 ## `draftchange`
 
-Emitted whenever the in-progress draft of a drawing mode (`'draw'` or `'draw-line'`) changes.
+Emitted whenever the in-progress draft of a drawing mode (`'draw'`, `'draw-line'`, or `'draw-rectangle'`) changes.
 
 Fires when:
 
@@ -314,6 +314,8 @@ Fires when:
 3. The draft is finalized — via double-click, close-on-first-vertex, or [`finishDrawing()`](/api/libre-draw#finishdrawing) — with `vertexCount: 0`
 4. The draft is discarded — via Escape or [`cancelDrawing()`](/api/libre-draw#canceldrawing) — with `vertexCount: 0`
 5. The active mode transitions away from a drawing mode (deactivation), with `vertexCount: 0`
+
+In `'draw-rectangle'` mode the draft holds at most the first corner: `vertexCount` is `1` after the first click and returns to `0` when the second corner creates the polygon or the corner is discarded.
 
 ### Payload: `DraftChangeEvent`
 

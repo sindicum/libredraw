@@ -29,6 +29,7 @@ import { LibreDrawError } from './core/errors';
 import { validateGeoJSON, validateFeature } from './validation/geojson';
 import { IdleMode } from './modes/IdleMode';
 import { DrawMode } from './modes/DrawMode';
+import { DrawRectangleMode } from './modes/DrawRectangleMode';
 import { DrawPointMode } from './modes/DrawPointMode';
 import { DrawLineMode } from './modes/DrawLineMode';
 import { SelectMode } from './modes/SelectMode';
@@ -189,6 +190,7 @@ export class LibreDraw {
     const drawPointMode = new DrawPointMode(modeContext);
     const drawLineMode = new DrawLineMode(modeContext);
     const drawMode = new DrawMode(modeContext);
+    const drawRectangleMode = new DrawRectangleMode(modeContext);
     this.selectMode = new SelectMode(modeContext);
     const splitMode = new SplitMode(modeContext);
     this.setbackMode = new SetbackMode(modeContext);
@@ -198,6 +200,7 @@ export class LibreDraw {
     this.modeManager.registerMode('draw-point', drawPointMode);
     this.modeManager.registerMode('draw-line', drawLineMode);
     this.modeManager.registerMode('draw', drawMode);
+    this.modeManager.registerMode('draw-rectangle', drawRectangleMode);
     this.modeManager.registerMode('select', this.selectMode);
     this.modeManager.registerMode('split', splitMode);
     this.modeManager.registerMode('setback', this.setbackMode);
@@ -251,8 +254,9 @@ export class LibreDraw {
    * in-progress state) and activates the new mode. A `'modechange'`
    * event is emitted on every transition.
    *
-   * @param mode - `'idle'` (no interaction), `'draw'` (create polygons),
-   *   or `'select'` (select/edit existing polygons).
+   * @param mode - `'idle'` (no interaction), `'draw-point'` / `'draw-line'` /
+   *   `'draw'` / `'draw-rectangle'` (create features), `'select'` (select/edit
+   *   existing features), `'split'`, or `'setback'`.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -272,7 +276,7 @@ export class LibreDraw {
   /**
    * Get the current drawing mode.
    *
-   * @returns The active mode name: `'idle'`, `'draw'`, or `'select'`.
+   * @returns The active mode name (e.g. `'idle'`, `'draw'`, `'draw-rectangle'`, `'select'`).
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
    *
@@ -576,6 +580,9 @@ export class LibreDraw {
    * and a `'draftchange'` event with `vertexCount: 0` is emitted. The mode
    * remains active so the user can start a new draft.
    *
+   * In `'draw-rectangle'` mode this always returns `false`: the rectangle
+   * is only defined once the second corner is clicked.
+   *
    * @returns `true` if the draft was finalized, `false` if it could not be
    *   (non-drawing mode, insufficient vertices, or a polygon whose closing
    *   would produce a self-intersection).
@@ -601,8 +608,8 @@ export class LibreDraw {
   /**
    * Discard the in-progress draft of the active drawing mode.
    *
-   * Applies to `'draw'` and `'draw-line'` modes. Clears the preview,
-   * resets the vertex list, and emits a `'draftchange'` event with
+   * Applies to `'draw'`, `'draw-line'`, and `'draw-rectangle'` modes.
+   * Clears the preview, resets the vertex list, and emits a `'draftchange'` event with
    * `vertexCount: 0`. The mode remains active; to exit drawing use
    * {@link setMode} afterwards.
    *
@@ -623,7 +630,8 @@ export class LibreDraw {
   /**
    * Get the number of vertices in the current draft.
    *
-   * @returns The draft vertex count for the active drawing mode,
+   * @returns The draft vertex count for the active drawing mode
+   *   (`1` while a rectangle's first corner is placed),
    *   or `0` when no drawing mode is active.
    *
    * @throws {LibreDrawError} If this instance has been destroyed.
@@ -867,6 +875,12 @@ export class LibreDraw {
         onDrawClick: () => {
           const current = this.modeManager.getMode();
           this.modeManager.setMode(current === 'draw' ? 'idle' : 'draw');
+        },
+        onDrawRectangleClick: () => {
+          const current = this.modeManager.getMode();
+          this.modeManager.setMode(
+            current === 'draw-rectangle' ? 'idle' : 'draw-rectangle',
+          );
         },
         onSelectClick: () => {
           const current = this.modeManager.getMode();

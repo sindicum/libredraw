@@ -33,7 +33,7 @@ All types are exported as TypeScript type-only exports:
 | [`ToolbarOptions`](/api/types#toolbaroptions) | Toolbar configuration |
 | [`ToolbarPosition`](/api/types#toolbarposition) | Toolbar placement |
 | [`ToolbarControls`](/api/types#toolbarcontrols) | Which toolbar buttons to show |
-| [`ModeName`](/api/types#modename) | `'idle' \| 'draw-point' \| 'draw-line' \| 'draw' \| 'select' \| 'split' \| 'setback'` |
+| [`ModeName`](/api/types#modename) | `'idle' \| 'draw-point' \| 'draw-line' \| 'draw' \| 'draw-rectangle' \| 'select' \| 'split' \| 'setback'` |
 | [`Action`](/api/types#action) | Undo/redo action interface |
 | [`ActionType`](/api/types#actiontype) | `'create' \| 'update' \| 'delete' \| 'split' \| 'setback'` |
 | [`NormalizedInputEvent`](/api/types#normalizedinputevent) | Unified mouse/touch event |

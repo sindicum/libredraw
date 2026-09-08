@@ -10,13 +10,14 @@ LibreDraw uses a mode-based architecture. Only one mode is active at a time, and
 | `draw-point` | Click to place a point feature. | Toolbar draw-point button / `setMode('draw-point')` |
 | `draw-line` | Click to add vertices, double-click to finalize line. | Toolbar draw-line button / `setMode('draw-line')` |
 | `draw` | Click to add vertices, double-click to close polygon. | Toolbar draw button / `setMode('draw')` |
+| `draw-rectangle` | Click two opposite corners to create a rectangle. | Toolbar rectangle button / `setMode('draw-rectangle')` |
 | `select` | Click to select, drag to edit vertices or move point/line/polygon. | Toolbar select button / `setMode('select')` |
 | `split` | Split a polygon with a two-point line. | Toolbar split button / `setMode('split')` |
 | `setback` | Apply inward edge setback with distance input. | Toolbar setback button / `setMode('setback')` |
 
 ### Try it
 
-Use the buttons below to switch between modes. Place points in **draw-point** mode, draw lines in **draw-line** mode, draw polygons in **draw** mode, then switch to **select** mode to edit them.
+Use the buttons below to switch between modes. Place points in **draw-point** mode, draw lines in **draw-line** mode, draw polygons in **draw** mode, drop rectangles in **draw-rectangle** mode, then switch to **select** mode to edit them.
 
 <ModesDemo />
 
@@ -135,6 +136,52 @@ draw.setMode('draw');
 draw.on('create', (e) => {
   console.log('New polygon:', e.feature);
   // Remains in draw mode for continuous drawing
+});
+```
+
+## Draw Rectangle Mode
+
+In draw-rectangle mode, you create a rectangular polygon from two opposite corners.
+
+### Mouse Interaction
+
+| Action | Effect |
+|--------|--------|
+| Click | Place the first corner |
+| Move | Preview the rectangle spanned by the first corner and the cursor |
+| Click | Place the opposite corner and create the polygon |
+| Drag | Pan the map — never places a corner |
+| Escape key | Discard the first corner |
+
+### Touch Interaction
+
+| Action | Effect |
+|--------|--------|
+| Tap | Place the first corner (marked with a dot) |
+| Tap | Place the opposite corner and create the polygon |
+| Drag (one finger) | Pan the map — never places a corner |
+| Long-press | Discard the first corner |
+
+Touch has no hover, so there is no rubber-band preview between the two taps.
+The dot on the first corner is the feedback that it has been placed.
+
+### Behavior
+
+- Both corners are placed by a click or tap — a press and release at the same spot. A drag is left to the map, so you can pan while drawing
+- The rectangle is aligned to the longitude/latitude axes; use the rotate mode to turn it afterwards
+- The result is a regular 4-vertex Polygon feature (no special properties), so it can be edited like any other polygon
+- A second corner on the same longitude or latitude as the first (zero width or height) is ignored and the first corner is kept
+- Snap to existing vertices and edges applies to both corners when enabled
+- The mode stays active after creation for continuous drawing
+- Double-click zoom is disabled during draw-rectangle mode; map panning stays enabled
+- `finishDrawing()` always returns `false` in this mode — the rectangle is only defined once the second corner is clicked. `cancelDrawing()` discards the first corner and `getDraftVertexCount()` returns `1` while it is placed
+
+```ts
+draw.setMode('draw-rectangle');
+
+draw.on('create', (e) => {
+  console.log('New rectangle:', e.feature);
+  // Remains in draw-rectangle mode for continuous drawing
 });
 ```
 
@@ -273,6 +320,14 @@ draw.on('setbackfailed', (e) => console.warn(e.reason));
            │     polygon created     │
            └─────────────────────────┘
            │
+           │  setMode('draw-rectangle')
+           ├─────────────────────────┐
+           │                         ▼
+           │                   ┌────────────────┐
+           │                   │ draw-rectangle │
+           │                   └────────────────┘
+           │                         │
+           ├─────────────────────────┘
            │    setMode('select')
            ├─────────────────────────┐
            │                         ▼
